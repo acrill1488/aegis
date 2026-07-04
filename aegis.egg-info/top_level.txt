@@ -1,0 +1,15 @@
+aegis
+assets
+backups
+compose
+configs
+data
+docs
+env
+examples
+knowledge
+models
+prompts
+scripts
+templates
+tests

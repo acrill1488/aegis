@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis"
+version = "0.1.0"
+description = "AEGIS - Advanced Enterprise Gateway for Intelligent Systems"
+readme = "README.md"
+authors = [
+    { name = "AEGIS Team" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+aegis = "aegis.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-dir]
+"aegis" = "aegis"
