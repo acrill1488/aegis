@@ -8,7 +8,7 @@ profiles:
   general:
     provider: ollama
     base_url: "http://192.168.1.7:11434"
-    model: "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
-    timeout: 600
+    model: "qwen3-coder:latest"
+    timeout: 300
 
 default_profile: coding
