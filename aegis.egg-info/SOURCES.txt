@@ -11,10 +11,14 @@ aegis/agents/__init__.py
 aegis/cli/__init__.py
 aegis/cli/main.py
 aegis/config/__init__.py
+aegis/config/runtime_config.py
 aegis/core/__init__.py
 aegis/mcp/__init__.py
 aegis/memory/__init__.py
 aegis/runtime/__init__.py
+aegis/runtime/base.py
+aegis/runtime/manager.py
+aegis/runtime/ollama.py
 aegis/tools/__init__.py
 aegis/vision/__init__.py
 aegis/vision/screen.py

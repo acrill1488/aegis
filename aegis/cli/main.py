@@ -8,8 +8,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.prompt import Prompt
 
 from aegis.vision.screen import capture_screen
+from aegis.runtime.manager import RuntimeManager
+from aegis.config.runtime_config import get_runtime_profile
 
 app = typer.Typer()
 console = Console()
@@ -36,7 +39,7 @@ def doctor():
     table.add_row("npm", "✅" if npm_ok else "❌", "npm")
 
     try:
-        r = httpx.get("http://192.168.1.7:11434/api/tags", timeout=30.0)
+        r = httpx.get("http://192.168.1.7:11434/api/tags", timeout=30.0, trust_env=False)
         if r.status_code == 200:
             data = r.json()
             models = data.get("models", [])
@@ -54,6 +57,63 @@ def doctor():
         table.add_row("Ollama Models", "⚠️", "Cannot check models")
 
     console.print(table)
+
+@app.command()
+def models(profile: str = typer.Option("coding", "--profile", "-p")):
+    """List available models."""
+    runtime = RuntimeManager(profile_name=profile)
+    try:
+        # Debug information
+        console.print(f"[bold yellow]Selected profile:[/bold yellow] {profile}")
+        
+        # Get profile details for debug info
+        from ..config.runtime_config import get_runtime_profile
+        profile_config = get_runtime_profile(profile)
+        console.print(f"[bold yellow]Base URL:[/bold yellow] {profile_config['base_url']}")
+        console.print(f"[bold yellow]Model:[/bold yellow] {profile_config['model']}")
+        
+        # Make direct request to get debug info about status and response
+        import httpx
+        url = f"{profile_config['base_url'].rstrip('/')}/api/tags"
+        try:
+            r = httpx.get(url, timeout=30, trust_env=False)
+            console.print(f"[bold yellow]Status Code:[/bold yellow] {r.status_code}")
+            response_preview = r.text[:200] + "..." if len(r.text) > 200 else r.text
+            console.print(f"[bold yellow]Response preview:[/bold yellow] {response_preview}")
+        except Exception as e:
+            console.print(f"[bold yellow]Connection Error:[/bold yellow] {e}")
+        
+        models = runtime.list_models()
+        if not models:
+            console.print("[bold red]No models found[/bold red]")
+            return
+        
+        table = Table(title="Available Models")
+        table.add_column("Model Name")
+        
+        for model in models:
+            table.add_row(model)
+        
+        console.print(table)
+    except Exception as e:
+        console.print(f"[bold red]Error fetching models: {e}[/bold red]")
+
+@app.command()
+def chat(prompt: str = typer.Argument(...), 
+         model: str = typer.Option(None, "--model", "-m"),
+         profile: str = typer.Option("coding", "--profile", "-p")):
+    """Chat with AI model."""
+    runtime = RuntimeManager(profile_name=profile)
+    try:
+        if not runtime.is_available():
+            console.print("[bold red]Runtime is not available[/bold red]")
+            return
+            
+        response = runtime.chat(model, prompt)
+        console.print(f"[bold blue]Model:[/bold blue] {model}")
+        console.print(f"[bold green]Response:[/bold green] {response}")
+    except Exception as e:
+        console.print(f"[bold red]Error during chat: {e}[/bold red]")
 
 @app.command()
 def screen():

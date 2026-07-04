@@ -2,6 +2,7 @@ aegis
 assets
 backups
 compose
+config
 configs
 data
 docs
