@@ -9,11 +9,14 @@ aegis.egg-info/requires.txt
 aegis.egg-info/top_level.txt
 aegis/agents/__init__.py
 aegis/cli/__init__.py
+aegis/cli/core.py
 aegis/cli/main.py
 aegis/cli/workspace.py
 aegis/config/__init__.py
 aegis/config/runtime_config.py
 aegis/core/__init__.py
+aegis/core/core.py
+aegis/core/registry.py
 aegis/mcp/__init__.py
 aegis/memory/__init__.py
 aegis/runtime/__init__.py

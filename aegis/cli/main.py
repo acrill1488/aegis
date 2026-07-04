@@ -13,14 +13,19 @@ from rich.prompt import Prompt
 from aegis.vision.screen import capture_screen
 from aegis.runtime.manager import RuntimeManager
 from aegis.config.runtime_config import get_runtime_profile
+from aegis.core.core import AegisCore
 
 # Import workspace commands
 from .workspace import app as workspace_app
+
+# Import core commands
+from .core import app as core_app
 
 app = typer.Typer()
 console = Console()
 
 app.add_typer(workspace_app, name="workspace", help="Workspace management commands")
+app.add_typer(core_app, name="core", help="AEGIS Core commands")
 
 
 def check_command(command: str) -> bool:
@@ -169,6 +174,7 @@ def dev_info():
         console.print("[bold yellow]typer:[/bold yellow] Installed")
     except ImportError:
         console.print("[bold yellow]typer:[/bold yellow] Not installed")
+
 
 @app.command()
 def version():
