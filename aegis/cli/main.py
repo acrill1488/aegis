@@ -14,18 +14,21 @@ from aegis.vision.screen import capture_screen
 from aegis.runtime.manager import RuntimeManager
 from aegis.config.runtime_config import get_runtime_profile
 from aegis.core.core import AegisCore
+from aegis.tools.registry import ToolRegistry
 
 # Import workspace commands
 from .workspace import app as workspace_app
 
 # Import core commands
 from .core import app as core_app
+from .tools import app as tools_app
 
 app = typer.Typer()
 console = Console()
 
 app.add_typer(workspace_app, name="workspace", help="Workspace management commands")
 app.add_typer(core_app, name="core", help="AEGIS Core commands")
+app.add_typer(tools_app, name="tools", help="Tool registry commands")
 
 
 def check_command(command: str) -> bool:
@@ -175,6 +178,23 @@ def dev_info():
     except ImportError:
         console.print("[bold yellow]typer:[/bold yellow] Not installed")
 
+
+@app.command()
+def tools_status():
+    """Show status of all tools."""
+    core = AegisCore()
+    tools_status = core.tools.status()
+    
+    table = Table(title="Tools Status")
+    table.add_column("Tool Name")
+    table.add_column("Description")
+    table.add_column("Available")
+    
+    for tool_info in tools_status:
+        available = "✅" if tool_info["available"] else "❌"
+        table.add_row(tool_info["name"], tool_info["description"], available)
+    
+    console.print(table)
 
 @app.command()
 def version():

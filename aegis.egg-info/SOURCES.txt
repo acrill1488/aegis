@@ -11,6 +11,7 @@ aegis/agents/__init__.py
 aegis/cli/__init__.py
 aegis/cli/core.py
 aegis/cli/main.py
+aegis/cli/tools.py
 aegis/cli/workspace.py
 aegis/config/__init__.py
 aegis/config/runtime_config.py
@@ -24,6 +25,11 @@ aegis/runtime/base.py
 aegis/runtime/manager.py
 aegis/runtime/ollama.py
 aegis/tools/__init__.py
+aegis/tools/base.py
+aegis/tools/filesystem.py
+aegis/tools/git.py
+aegis/tools/powershell.py
+aegis/tools/registry.py
 aegis/vision/__init__.py
 aegis/vision/screen.py
 aegis/workspace/__init__.py

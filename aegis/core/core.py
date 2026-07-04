@@ -1,6 +1,10 @@
 from aegis.runtime.manager import RuntimeManager
 from aegis.workspace.manager import WorkspaceManager
 from .registry import ServiceRegistry
+from aegis.tools.registry import ToolRegistry
+from aegis.tools.filesystem import FilesystemTool
+from aegis.tools.git import GitTool
+from aegis.tools.powershell import PowerShellTool
 
 
 class AegisCore:
@@ -8,10 +12,16 @@ class AegisCore:
         self.runtime = RuntimeManager()
         self.workspace = WorkspaceManager()
         self.registry = ServiceRegistry()
+        self.tools = ToolRegistry()
         
         # Register services
         self.registry.register("runtime", self.runtime)
         self.registry.register("workspace", self.workspace)
+        
+        # Register tools
+        self.tools.register(FilesystemTool())
+        self.tools.register(GitTool())
+        self.tools.register(PowerShellTool())
 
     def health(self) -> dict:
         """Returns the health status of the core system."""
