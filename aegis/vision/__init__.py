@@ -1,0 +1,1 @@
+"""AEGIS Vision module for screen capture and image processing."""

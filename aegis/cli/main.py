@@ -1,12 +1,15 @@
 import shutil
 import subprocess
 import sys
+import os
 
 import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+
+from aegis.vision.screen import capture_screen
 
 app = typer.Typer()
 console = Console()
@@ -51,6 +54,15 @@ def doctor():
         table.add_row("Ollama Models", "⚠️", "Cannot check models")
 
     console.print(table)
+
+@app.command()
+def screen():
+    """Capture screenshot of the main monitor."""
+    try:
+        filepath = capture_screen()
+        console.print(f"Screenshot saved to: [bold green]{filepath}[/bold green]")
+    except Exception as e:
+        console.print(f"[bold red]Error capturing screenshot:[/bold red] {e}")
 
 @app.command()
 def version():
