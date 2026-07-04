@@ -1,0 +1,16 @@
+.env
+env/*.env
+*.key
+*.pem
+*.crt
+*.pfx
+
+backups/
+models/
+data/
+
+*.log
+__pycache__/
+.vscode/
+.DS_Store
+Thumbs.db
