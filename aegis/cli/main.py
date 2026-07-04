@@ -31,6 +31,7 @@ def doctor():
     table.add_column("Status")
     table.add_column("Details")
 
+    table.add_row("Python Executable", "✅", sys.executable)
     table.add_row("Python Version", "✅", sys.version.split()[0])
     table.add_row("Git", "✅" if check_command("git") else "❌", "git")
     table.add_row("Node.js", "✅" if check_command("node") else "❌", "node")
@@ -123,6 +124,46 @@ def screen():
         console.print(f"Screenshot saved to: [bold green]{filepath}[/bold green]")
     except Exception as e:
         console.print(f"[bold red]Error capturing screenshot:[/bold red] {e}")
+
+import os
+import sys
+
+@app.command()
+def dev_info():
+    """Display development environment information."""
+    console.print("[bold blue]Development Environment Info[/bold blue]")
+    
+    # Python executable path
+    console.print(f"[bold yellow]Python executable:[/bold yellow] {sys.executable}")
+    
+    # Python version
+    console.print(f"[bold yellow]Python version:[/bold yellow] {sys.version.split()[0]}")
+    
+    # Check if .venv is active
+    venv_active = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    console.print(f"[bold yellow]Virtual environment active:[/bold yellow] {'Yes' if venv_active else 'No'}")
+    
+    # Current project path
+    console.print(f"[bold yellow]Current project path:[/bold yellow] {os.getcwd()}")
+    
+    # Check dependencies
+    try:
+        import yaml
+        console.print("[bold yellow]pyyaml:[/bold yellow] Installed")
+    except ImportError:
+        console.print("[bold yellow]pyyaml:[/bold yellow] Not installed")
+        
+    try:
+        import httpx
+        console.print("[bold yellow]httpx:[/bold yellow] Installed")
+    except ImportError:
+        console.print("[bold yellow]httpx:[/bold yellow] Not installed")
+        
+    try:
+        import typer
+        console.print("[bold yellow]typer:[/bold yellow] Installed")
+    except ImportError:
+        console.print("[bold yellow]typer:[/bold yellow] Not installed")
 
 @app.command()
 def version():
