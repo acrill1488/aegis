@@ -33,13 +33,16 @@ def doctor():
     table.add_row("npm", "✅" if npm_ok else "❌", "npm")
 
     try:
-        r = httpx.get("http://192.168.1.7:11434/api/tags", timeout=10)
+        r = httpx.get("http://192.168.1.7:11434/api/tags", timeout=30.0)
         if r.status_code == 200:
             data = r.json()
             models = data.get("models", [])
             model_names = ", ".join([m.get("name", "unknown") for m in models]) or "No models"
             table.add_row("Ollama API", "✅", "Available")
             table.add_row("Ollama Models", "✅", model_names)
+        elif r.status_code == 503:
+            table.add_row("Ollama API", "⚠️", "Busy / loading model")
+            table.add_row("Ollama Models", "⚠️", "Cannot check while busy")
         else:
             table.add_row("Ollama API", "❌", f"Status {r.status_code}")
             table.add_row("Ollama Models", "⚠️", "Cannot check models")
