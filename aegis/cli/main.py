@@ -14,8 +14,13 @@ from aegis.vision.screen import capture_screen
 from aegis.runtime.manager import RuntimeManager
 from aegis.config.runtime_config import get_runtime_profile
 
+# Import workspace commands
+from .workspace import app as workspace_app
+
 app = typer.Typer()
 console = Console()
+
+app.add_typer(workspace_app, name="workspace", help="Workspace management commands")
 
 
 def check_command(command: str) -> bool:

@@ -18,6 +18,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: mss>=9.0.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: GitPython>=3.1.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"

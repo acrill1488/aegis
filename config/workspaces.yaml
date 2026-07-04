@@ -1,0 +1,10 @@
+root: "F:\\AI_WORKSPACE"
+
+folders:
+  projects: "projects"
+  sandbox: "sandbox"
+  knowledge: "knowledge"
+  downloads: "downloads"
+  screenshots: "screenshots"
+  logs: "logs"
+  temp: "temp"

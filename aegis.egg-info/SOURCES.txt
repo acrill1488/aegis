@@ -10,6 +10,7 @@ aegis.egg-info/top_level.txt
 aegis/agents/__init__.py
 aegis/cli/__init__.py
 aegis/cli/main.py
+aegis/cli/workspace.py
 aegis/config/__init__.py
 aegis/config/runtime_config.py
 aegis/core/__init__.py
@@ -22,3 +23,5 @@ aegis/runtime/ollama.py
 aegis/tools/__init__.py
 aegis/vision/__init__.py
 aegis/vision/screen.py
+aegis/workspace/__init__.py
+aegis/workspace/manager.py
