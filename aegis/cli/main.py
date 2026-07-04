@@ -70,7 +70,6 @@ def doctor():
         table.add_row("Ollama API", "❌", str(e))
         table.add_row("Ollama Models", "⚠️", "Cannot check models")
 
-    console.print(table)
 
 @app.command()
 def models(profile: str = typer.Option("coding", "--profile", "-p")):
@@ -123,7 +122,7 @@ def chat(prompt: str = typer.Argument(...),
             console.print("[bold red]Runtime is not available[/bold red]")
             return
             
-        response = runtime.chat(model, prompt)
+        response = runtime.chat(prompt, profile=profile, model=model)
         console.print(f"[bold blue]Model:[/bold blue] {model}")
         console.print(f"[bold green]Response:[/bold green] {response}")
     except Exception as e:
@@ -194,7 +193,19 @@ def tools_status():
         available = "✅" if tool_info["available"] else "❌"
         table.add_row(tool_info["name"], tool_info["description"], available)
     
-    console.print(table)
+
+
+@app.command()
+def ask(
+    prompt: str = typer.Argument(...),
+    capability: str = typer.Option("general", "--capability", "-c"),
+    role: str = typer.Option("assistant", "--role", "-r")
+):
+    """Ask the AEGIS agent a question."""
+    core = AegisCore()
+    response = core.agent.run(prompt, capability, role)
+    console.print(f"[bold blue]Response:[/bold blue] {response}")
+
 
 @app.command()
 def version():

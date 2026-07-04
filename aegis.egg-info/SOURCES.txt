@@ -7,6 +7,10 @@ aegis.egg-info/dependency_links.txt
 aegis.egg-info/entry_points.txt
 aegis.egg-info/requires.txt
 aegis.egg-info/top_level.txt
+aegis/agent/__init__.py
+aegis/agent/context.py
+aegis/agent/kernel.py
+aegis/agent/prompts.py
 aegis/agents/__init__.py
 aegis/cli/__init__.py
 aegis/cli/core.py

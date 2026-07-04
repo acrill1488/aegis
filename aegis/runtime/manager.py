@@ -22,12 +22,15 @@ class RuntimeManager:
         """List available models."""
         return self.provider.list_models()
     
-    def chat(self, model: str, prompt: str) -> str:
-        """Chat with a specific model."""
-        # If model is not provided explicitly, use the one from profile
+    def chat(self, prompt: str, profile: str = "coding", model: str | None = None) -> str:
+        """Chat with a specific model using a profile."""
+        # Get the profile configuration
+        profile_config = get_runtime_profile(profile)
+        
+        # If no model is provided, use the one from the profile
         if model is None:
-            # We'll use the default model from the provider
-            model = self.provider.default_model
+            model = profile_config["model"]
+            
         return self.provider.chat(model, prompt)
     
     def is_available(self) -> bool:

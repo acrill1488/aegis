@@ -22,6 +22,10 @@ class AegisCore:
         self.tools.register(FilesystemTool())
         self.tools.register(GitTool())
         self.tools.register(PowerShellTool())
+        
+        # Initialize agent kernel
+        from aegis.agent.kernel import AgentKernel
+        self.agent = AgentKernel(self)
 
     def health(self) -> dict:
         """Returns the health status of the core system."""
