@@ -2,6 +2,7 @@ from typing import List
 from .base import RuntimeProvider
 from .ollama import OllamaRuntimeProvider
 from ..config.runtime_config import get_runtime_profile
+from .postprocess import clean_model_response
 
 
 class RuntimeManager:
@@ -22,7 +23,7 @@ class RuntimeManager:
         """List available models."""
         return self.provider.list_models()
     
-    def chat(self, prompt: str, profile: str = "coding", model: str | None = None) -> str:
+    def chat(self, prompt: str, profile: str = "coding", model: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
         """Chat with a specific model using a profile."""
         # Get the profile configuration
         profile_config = get_runtime_profile(profile)
@@ -31,7 +32,8 @@ class RuntimeManager:
         if model is None:
             model = profile_config["model"]
             
-        return self.provider.chat(model, prompt)
+        response = self.provider.chat(prompt=prompt, model=model, temperature=temperature, max_tokens=max_tokens)
+        return clean_model_response(response)
     
     def is_available(self) -> bool:
         """Check if the runtime is available."""

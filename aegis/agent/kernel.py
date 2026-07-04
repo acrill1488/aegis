@@ -17,6 +17,6 @@ class AgentKernel:
         full_prompt = prompt_builder.build(prompt, context, role)
         
         # Send to core runtime
-        response = self.core.runtime.chat(prompt=full_prompt, profile=capability)
+        response = self.core.runtime.chat(prompt=full_prompt, profile=capability, model=None)
         
         return response

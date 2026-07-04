@@ -122,7 +122,7 @@ def chat(prompt: str = typer.Argument(...),
             console.print("[bold red]Runtime is not available[/bold red]")
             return
             
-        response = runtime.chat(prompt, profile=profile, model=model)
+        response = runtime.chat(prompt=prompt, profile=profile, model=model, temperature=None, max_tokens=None)
         console.print(f"[bold blue]Model:[/bold blue] {model}")
         console.print(f"[bold green]Response:[/bold green] {response}")
     except Exception as e:

@@ -20,7 +20,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
         data = r.json()
         return [m["name"] for m in data.get("models", []) if "name" in m]
     
-    def chat(self, model: str, prompt: str) -> str:
+    def chat(self, prompt: str, model: str | None = None, timeout: int | None = None, temperature: float | None = None, max_tokens: int | None = None) -> str:
         """Chat with a specific model."""
         # Use the provided model or default model if none specified
         selected_model = model or self.default_model
@@ -29,12 +29,16 @@ class OllamaRuntimeProvider(RuntimeProvider):
             payload = {
                 "model": selected_model,
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "options": {
+                    "num_predict": max_tokens or 512,
+                    "temperature": temperature or 0.4
+                }
             }
             response = httpx.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=self.timeout,
+                timeout=timeout or self.timeout,
                 trust_env=False
             )
             if response.status_code != 200:

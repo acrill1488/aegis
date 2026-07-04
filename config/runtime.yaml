@@ -8,7 +8,7 @@ profiles:
   general:
     provider: ollama
     base_url: "http://192.168.1.7:11434"
-    model: "qwen3-coder:latest"
+    model: "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M "
     timeout: 300
 
 default_profile: coding
