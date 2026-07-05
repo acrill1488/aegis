@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from typing import List, Optional
-from .models import AegisTask
+from .models import AegisTask, TaskStep
 from .status import TaskStatus, TaskPriority
 
 # Define the tasks storage path
@@ -70,6 +70,27 @@ class TaskManager:
         """Get a task by ID."""
         for task_dict in self._tasks:
             if task_dict["id"] == task_id:
+                # Convert JSON steps to TaskStep objects
+                steps = []
+                if "steps" in task_dict and task_dict["steps"]:
+                    for step_dict in task_dict["steps"]:
+                        # Handle status conversion - if it's a string, convert to TaskStatus enum
+                        status = step_dict.get("status", "pending")
+                        if isinstance(status, str):
+                            status = TaskStatus(status)
+                        else:
+                            status = TaskStatus.PENDING  # default fallback
+                        
+                        step = TaskStep(
+                            id=step_dict["id"],
+                            title=step_dict["title"],
+                            description=step_dict["description"],
+                            status=status,
+                            tool=step_dict.get("tool"),
+                            result=step_dict.get("result")
+                        )
+                        steps.append(step)
+                
                 # Convert back to AegisTask object
                 task = AegisTask(
                     id=task_dict["id"],
@@ -81,7 +102,7 @@ class TaskManager:
                     priority=TaskPriority(task_dict["priority"]),
                     session_id=task_dict["session_id"],
                     parent_id=task_dict["parent_id"],
-                    steps=[],
+                    steps=steps,
                     progress=task_dict["progress"],
                     result=task_dict["result"],
                     metadata=task_dict["metadata"]
@@ -192,3 +213,39 @@ class TaskManager:
                 )
                 return task
         return None
+    
+    def save_task(self, task: AegisTask) -> None:
+        """Save a task to storage."""
+        # Find the existing task in our list
+        for i, task_dict in enumerate(self._tasks):
+            if task_dict["id"] == task.id:
+                # Convert AegisTask back to dict format
+                task_dict = {
+                    "id": task.id,
+                    "title": task.title,
+                    "goal": task.goal,
+                    "created_at": task.created_at.isoformat(),
+                    "updated_at": task.updated_at.isoformat(),
+                    "status": task.status.value,
+                    "priority": task.priority.value,
+                    "session_id": task.session_id,
+                    "parent_id": task.parent_id,
+                    "steps": [
+                        {
+                            "id": step.id,
+                            "title": step.title,
+                            "description": step.description,
+                            "status": step.status.value,
+                            "tool": step.tool,
+                            "result": step.result
+                        } for step in task.steps
+                    ],
+                    "progress": task.progress,
+                    "result": task.result,
+                    "metadata": task.metadata
+                }
+                self._tasks[i] = task_dict
+                self._save_tasks()
+                return
+        # If we get here, the task wasn't found (shouldn't happen in normal usage)
+        raise ValueError(f"Task with id {task.id} not found in storage")
