@@ -6,6 +6,7 @@ from aegis.task.manager import TaskManager
 from aegis.tools.registry import ToolRegistry
 from aegis.planner.planner import Planner
 from aegis.core.registry import ServiceRegistry
+from aegis.executor.executor import ExecutionEngine
 
 class AegisCore:
     def __init__(self):
@@ -18,6 +19,10 @@ class AegisCore:
         # Initialize planner
         self.planner = Planner(self)
         self.registry.register("planner", self.planner)
+        
+        # Initialize executor
+        self.executor = ExecutionEngine()
+        self.registry.register("executor", self.executor)
 
     def get_task(self, task_id: str):
         return self.tasks.get(task_id)

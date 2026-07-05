@@ -29,6 +29,7 @@ from .task import task as task_app
 
 # Import plan commands
 from .plan import app as plan_app
+from .task import task as task_app
 
 app = typer.Typer()
 console = Console()
@@ -39,6 +40,13 @@ app.add_typer(core_app, name="core", help="AEGIS Core commands")
 app.add_typer(tools_app, name="tools", help="Tool registry commands")
 app.add_typer(task_app, name="task", help="Task management commands")
 app.add_typer(plan_app, name="plan", help="Plan management commands")
+app.add_typer(task_app, name="task", help="Task management commands")
+
+@app.command("execute")
+def execute_command(task_id: str):
+    """Execute a task using the execution engine."""
+    core = AegisCore()
+    core.executor.execute_task(task_id)
 
 
 def check_command(command: str) -> bool:

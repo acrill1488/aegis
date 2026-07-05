@@ -121,3 +121,27 @@ def cancel(
 
 # Export the app as 'task' for main.py import
 task = app
+
+@app.command()
+def execute(task_id: str):
+    """Execute a task."""
+    core = AegisCore()
+    task = core.tasks.get(task_id)
+    
+    if not task:
+        console.print(f"Task {task_id} not found.")
+        return
+    
+    # Use the new execution engine
+    console.print(f"Executing task {task_id}")
+    core.executor.execute_task(task_id)
+
+@app.command()
+def execute_step(task_id: str, step_id: str):
+    """Execute a specific step of a task."""
+    core = AegisCore()
+    
+    # Use the new execution engine
+    console.print(f"Executing step {step_id} for task {task_id}")
+    result = core.executor.execute_step(task_id, step_id)
+    console.print(result)
