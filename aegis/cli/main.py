@@ -19,6 +19,9 @@ from aegis.tools.registry import ToolRegistry
 # Import workspace commands
 from .workspace import app as workspace_app
 
+# Import session commands
+from .session import app as session_app
+
 # Import core commands
 from .core import app as core_app
 from .tools import app as tools_app
@@ -27,6 +30,7 @@ app = typer.Typer()
 console = Console()
 
 app.add_typer(workspace_app, name="workspace", help="Workspace management commands")
+app.add_typer(session_app, name="session", help="Session management commands")
 app.add_typer(core_app, name="core", help="AEGIS Core commands")
 app.add_typer(tools_app, name="tools", help="Tool registry commands")
 
