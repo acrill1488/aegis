@@ -25,6 +25,7 @@ from .session import app as session_app
 # Import core commands
 from .core import app as core_app
 from .tools import app as tools_app
+from .task import task as task_app
 
 app = typer.Typer()
 console = Console()
@@ -33,6 +34,7 @@ app.add_typer(workspace_app, name="workspace", help="Workspace management comman
 app.add_typer(session_app, name="session", help="Session management commands")
 app.add_typer(core_app, name="core", help="AEGIS Core commands")
 app.add_typer(tools_app, name="tools", help="Tool registry commands")
+app.add_typer(task_app, name="task", help="Task management commands")
 
 
 def check_command(command: str) -> bool:
