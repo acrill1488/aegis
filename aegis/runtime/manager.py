@@ -3,6 +3,7 @@ from .base import RuntimeProvider
 from .ollama import OllamaRuntimeProvider
 from ..config.runtime_config import get_runtime_profile
 from .postprocess import clean_model_response
+from .filters.pipeline import clean_response
 
 
 class RuntimeManager:
@@ -33,7 +34,7 @@ class RuntimeManager:
             model = profile_config["model"]
             
         response = self.provider.chat(prompt=prompt, model=model, temperature=temperature, max_tokens=max_tokens)
-        return clean_model_response(response)
+        return clean_response(response)
     
     def is_available(self) -> bool:
         """Check if the runtime is available."""
