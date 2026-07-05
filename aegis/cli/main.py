@@ -43,10 +43,17 @@ app.add_typer(plan_app, name="plan", help="Plan management commands")
 app.add_typer(task_app, name="task", help="Task management commands")
 
 @app.command("execute")
-def execute_command(task_id: str):
+def execute_command(
+    task_id: str,
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Run without making real changes",
+    ),
+):
     """Execute a task using the execution engine."""
     core = AegisCore()
-    core.executor.execute_task(task_id)
+    core.executor.execute_task(task_id, dry_run=dry_run)
 
 
 def check_command(command: str) -> bool:
