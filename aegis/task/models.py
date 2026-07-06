@@ -10,6 +10,8 @@ class TaskStep:
     description: str
     status: TaskStatus = TaskStatus.PENDING
     tool: Optional[str] = None
+    action: Optional[str] = None
+    kwargs: Dict = field(default_factory=dict)
     result: Optional[str] = None
 
 @dataclass

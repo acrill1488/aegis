@@ -1,30 +1,25 @@
 from aegis.tools.filesystem import FilesystemTool
 from aegis.tools.git import GitTool
 from aegis.tools.powershell import PowerShellTool
+from aegis.tools.result import ToolResult
+
 
 class ToolDispatcher:
-    def __init__(self):
-        self.tools = {
-            "filesystem": FilesystemTool(),
-            "git": GitTool(),
-            "powershell": PowerShellTool()
-        }
+    def __init__(self, core=None):
+        self.core = core
+        # Removed local tools dict - now using core.tools registry
     
-    def dispatch(self, step: str):
+    def dispatch(self, step):
         """Dispatch a step to the appropriate tool."""
-        # For now, we'll just return a success message
-        # In a real implementation, this would parse the step and route it to the correct tool
+        # Get tool from core.tools registry instead of local tools dict
+        if self.core is None:
+            raise ValueError("ToolDispatcher not initialized with AegisCore")
         
-        # Split the step into tool name and action
-        parts = step.split(":", 1)
-        if len(parts) < 2:
-            raise ValueError(f"Invalid step format: {step}")
+        tool = self.core.tools.get(step.tool)
+        if not tool:
+            raise ValueError(f"Unknown tool: {step.tool}")
         
-        tool_name = parts[0]
-        action = parts[1]
+        # Execute the tool with action and kwargs from step
+        result = tool.execute(action=step.action, **step.kwargs)
         
-        if tool_name not in self.tools:
-            raise ValueError(f"Unknown tool: {tool_name}")
-        
-        # Return success for now - in real implementation this would execute the actual tool
-        return f"Successfully dispatched step '{step}' to tool '{tool_name}'"
+        return result

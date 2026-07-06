@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from aegis.tools.base import BaseTool
 
 
@@ -28,7 +29,7 @@ class ToolRegistry:
         result = []
         for tool_name, tool in self._tools.items():
             result.append({
-                "name": tool_name,
+                "name": tool.name,
                 "description": tool.description,
                 "available": tool.is_available()
             })

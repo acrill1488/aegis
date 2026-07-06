@@ -3,8 +3,8 @@ from aegis.task.manager import TaskManager
 from aegis.task.status import TaskStatus
 
 class ExecutionEngine:
-    def __init__(self):
-        self.dispatcher = ToolDispatcher()
+    def __init__(self, core=None):
+        self.dispatcher = ToolDispatcher(core)
         self.task_manager = TaskManager()
     
     def execute_task(self, task_id: str, dry_run: bool = True):
@@ -35,28 +35,31 @@ class ExecutionEngine:
             # Save task
             self.task_manager.save_task(task)
             
-            # Handle execution based on dry_run flag and tool type
+            # Handle execution based on dry_run flag
             if dry_run:
                 # In dry-run mode, we don't actually execute anything
                 # Just mark the step as completed with a message
                 step.status = TaskStatus.COMPLETED
                 step.result = "Dry-run completed"
             else:
-                # Real execution mode
-                if step.tool == "filesystem":
-                    # For filesystem steps, perform safe operations
-                    self._execute_filesystem_step(step)
-                elif step.tool == "powershell":
-                    # For PowerShell steps, execute safely only if command is allowed
-                    # Check if command is allowed before executing (require --no-dry-run flag)
-                    powershell_tool = self.dispatcher.tools["powershell"]
-                    # In real implementation, we would extract the actual command from the step
-                    # For now, we'll just execute the test command but only in non-dry-run mode
-                    self._execute_powershell_step(step)
-                else:
-                    # Skip non-filesystem and non-powershell steps (git, etc.)
-                    step.status = TaskStatus.WAITING
-                    step.result = "Skipped: real execution for this tool is not implemented"
+                # Real execution mode - use dispatcher
+                try:
+                    # Set up step kwargs based on tool type and content
+                    self._setup_step_kwargs(step)
+                    
+                    result = self.dispatcher.dispatch(step)
+                    
+                    # Save result based on success/failure
+                    if result.success:
+                        step.result = result.stdout
+                        step.status = TaskStatus.COMPLETED
+                    else:
+                        step.result = result.stderr
+                        step.status = TaskStatus.FAILED
+                except Exception as e:
+                    # Handle any errors during tool execution
+                    step.result = str(e)
+                    step.status = TaskStatus.FAILED
             
             # Save task after each step
             self.task_manager.save_task(task)
@@ -69,77 +72,30 @@ class ExecutionEngine:
         # Save final task state
         self.task_manager.save_task(task)
     
-    def _execute_filesystem_step(self, step):
-        """Execute a filesystem step safely."""
-        # Check if the description mentions creating directories or files
-        description = step.description.lower()
-        title = step.title.lower() if step.title else ""
-        sandbox_path = r"F:\AI_WORKSPACE\sandbox\executor-test"
-        
-        # Check for directory creation in description or title
-        if (("create" in description or "создать" in description) and \
-           ("directory" in description or "folder" in description or 
-            "папку" in description or "каталог" in description)) or \
-           (("create" in title or "создать" in title) and \
-           ("directory" in title or "folder" in title or 
-            "папку" in title or "каталог" in title)):
-            try:
-                # Create directory in sandbox
-                full_path = os.path.join(sandbox_path, "new_directory")
-                os.makedirs(full_path, exist_ok=True)
-                step.status = TaskStatus.COMPLETED
-                step.result = f"Created directory: {full_path}"
-            except Exception as e:
-                step.status = TaskStatus.FAILED
-                step.result = f"Failed to create directory: {str(e)}"
-        elif "readme.md" in description or "readme.md" in title:
-            try:
-                # Create README.md file in sandbox
-                full_path = os.path.join(sandbox_path, "README.md")
-                with open(full_path, 'w', encoding='utf-8') as f:
-                    f.write("# README\n\nThis is a test README file.")
-                step.status = TaskStatus.COMPLETED
-                step.result = f"Created file: {full_path}"
-            except Exception as e:
-                step.status = TaskStatus.FAILED
-                step.result = f"Failed to create file: {str(e)}"
-        else:
-            # For other filesystem operations, skip with warning
-            step.status = TaskStatus.WAITING
-            step.result = "Skipped: not a supported filesystem operation"
-    
-    def _execute_powershell_step(self, step):
-        """Execute a PowerShell step safely."""
-        # Get the PowerShell tool
-        powershell_tool = self.dispatcher.tools["powershell"]
-        
-        # For now, use test command as specified in requirements:
-        # "для шага powershell использовать тестовую команду: python --version"
-        test_command = "python --version"
-        
-        # Real execution mode - use execute method
-        # We must check if the command is allowed before executing
-        result = powershell_tool.execute("run", command=test_command)
-        
-        # Save stdout/stderr/result in step.result
-        step.result = {
-            "returncode": result.exit_code,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
-        
-        if result.success:
-            step.status = TaskStatus.COMPLETED
-        else:
-            step.status = TaskStatus.FAILED
-    
-    def _validate_path_safety(self, path: str) -> bool:
-        """Validate that the path is within F:\\AI_WORKSPACE."""
-        import os
-        # Normalize the path
-        normalized_path = os.path.normpath(path)
-        # Check if path starts with the sandbox directory
-        return normalized_path.startswith(r"F:\AI_WORKSPACE")
+    def _setup_step_kwargs(self, step):
+        """Setup kwargs for different tool types based on step content."""
+        if step.tool == "filesystem":
+            if "README.md" in step.title or "README.md" in step.description:
+                step.action = "write_text"
+                step.kwargs = {
+                    "path": r"F:\AI_WORKSPACE\sandbox\executor-test\README.md",
+                    "content": "# Executor Test\n\nCreated by AEGIS.\n"
+                }
+            else:
+                step.action = "create_dir"
+                step.kwargs = {
+                    "path": r"F:\AI_WORKSPACE\sandbox\executor-test"
+                }
+        elif step.tool == "powershell":
+            step.action = "safe_run"
+            step.kwargs = {
+                "command": "python --version"
+            }
+        elif step.tool == "git":
+            step.action = "status"
+            step.kwargs = {
+                "path": r"F:\AEGIS"
+            }
     
     def execute_step(self, task_id: str, step_id: str):
         """Execute a specific step of a task."""
@@ -168,10 +124,24 @@ class ExecutionEngine:
         # Save task
         self.task_manager.save_task(task)
         
-        # In dry-run mode, we don't actually execute anything
-        # Just mark the step as completed with a message
-        step.status = TaskStatus.COMPLETED
-        step.result = "Dry-run completed"
+        # Handle execution (always execute, no dry-run for this method)
+        try:
+            # Set up step kwargs based on tool type and content
+            self._setup_step_kwargs(step)
+            
+            result = self.dispatcher.dispatch(step)
+            
+            # Save result based on success/failure
+            if result.success:
+                step.result = result.stdout
+                step.status = TaskStatus.COMPLETED
+            else:
+                step.result = result.stderr
+                step.status = TaskStatus.FAILED
+        except Exception as e:
+            # Handle any errors during tool execution
+            step.result = str(e)
+            step.status = TaskStatus.FAILED
         
         # Save task after the step
         self.task_manager.save_task(task)

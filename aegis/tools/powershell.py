@@ -24,7 +24,7 @@ class PowerShellTool(BaseTool):
     
     def execute(self, action: str, **kwargs) -> ToolResult:
         """Execute a PowerShell command safely."""
-        if action != "run":
+        if action != "safe_run":
             return ToolResult(
                 success=False,
                 tool="powershell",

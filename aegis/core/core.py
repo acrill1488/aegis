@@ -16,12 +16,21 @@ class AegisCore:
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
         
+        # Register tools
+        from aegis.tools.filesystem import FilesystemTool
+        from aegis.tools.powershell import PowerShellTool
+        from aegis.tools.git import GitTool
+        
+        self.tools.register(FilesystemTool())
+        self.tools.register(PowerShellTool())
+        self.tools.register(GitTool())
+        
         # Initialize planner
         self.planner = Planner(self)
         self.registry.register("planner", self.planner)
         
         # Initialize executor
-        self.executor = ExecutionEngine()
+        self.executor = ExecutionEngine(self)
         self.registry.register("executor", self.executor)
 
     def get_task(self, task_id: str):
