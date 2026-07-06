@@ -1,10 +1,13 @@
 from .context import ContextBuilder
 from .prompts import PromptBuilder
+from aegis.context.builder import DEFAULT_PROMPT_BUILDER
 
 
 class AgentKernel:
     def __init__(self, core: 'AegisCore'):
         self.core = core
+        # Set up the prompt builder with memory manager
+        DEFAULT_PROMPT_BUILDER.set_memory_manager(self.core.memory)
     
     def run(self, prompt: str, capability: str = "general", role: str = "assistant") -> str:
         """Run an agent with the given prompt and capability."""
@@ -17,8 +20,7 @@ class AgentKernel:
         context = context_builder.build()
         
         # Build full prompt
-        prompt_builder = PromptBuilder(self.core)
-        full_prompt = prompt_builder.build(prompt, context, role)
+        full_prompt = DEFAULT_PROMPT_BUILDER.build_prompt(context, prompt)
         
         # Send to core runtime
         response = self.core.runtime.chat(prompt=full_prompt, profile=capability, model=None)

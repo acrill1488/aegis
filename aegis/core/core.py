@@ -8,6 +8,7 @@ from aegis.planner.planner import Planner
 from aegis.core.registry import ServiceRegistry
 from aegis.executor.executor import ExecutionEngine
 from aegis.router.capability import CapabilityRouter
+from aegis.memory.manager import MemoryManager
 
 class AegisCore:
     def __init__(self):
@@ -17,6 +18,7 @@ class AegisCore:
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
         self.router = CapabilityRouter()
+        self.memory = MemoryManager()
         
         # Register tools
         from aegis.tools.filesystem import FilesystemTool
@@ -39,6 +41,19 @@ class AegisCore:
         from aegis.agent.kernel import AgentKernel
         self.agent = AgentKernel(self)
         self.registry.register("agent", self.agent)
+        
+        # Register memory
+        self.registry.register("memory", self.memory)
+        
+        # Initialize brain engine
+        from aegis.brain.engine import BrainEngine
+        self.brain = BrainEngine(self)
+        self.registry.register("brain", self.brain)
+        
+        # Initialize reflection engine
+        from aegis.brain.reflection import ReflectionEngine
+        self.reflection = ReflectionEngine(self)
+        self.registry.register("reflection", self.reflection)
 
     def get_task(self, task_id: str):
         return self.tasks.get(task_id)

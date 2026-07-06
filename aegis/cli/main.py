@@ -25,12 +25,13 @@ from .session import app as session_app
 # Import core commands
 from .core import app as core_app
 from .tools import app as tools_app
-from .task import task as task_app
+from .memory import app as memory_app
 
 # Import plan commands
 from .plan import app as plan_app
 from .task import task as task_app
 from .router import app as router_app
+from .brain import app as brain_app
 
 app = typer.Typer()
 console = Console()
@@ -39,10 +40,11 @@ app.add_typer(workspace_app, name="workspace", help="Workspace management comman
 app.add_typer(session_app, name="session", help="Session management commands")
 app.add_typer(core_app, name="core", help="AEGIS Core commands")
 app.add_typer(tools_app, name="tools", help="Tool registry commands")
-app.add_typer(task_app, name="task", help="Task management commands")
 app.add_typer(plan_app, name="plan", help="Plan management commands")
 app.add_typer(task_app, name="task", help="Task management commands")
 app.add_typer(router_app, name="router", help="Router commands")
+app.add_typer(memory_app, name="memory", help="Memory commands")
+app.add_typer(brain_app, name="brain", help="Brain commands")
 
 @app.command("execute")
 def execute_command(
@@ -210,7 +212,7 @@ def tools_status():
     """Show status of all tools."""
     core = AegisCore()
     tools_status = core.tools.status()
-    
+    console.print(table)
     table = Table(title="Tools Status")
     table.add_column("Tool Name")
     table.add_column("Description")

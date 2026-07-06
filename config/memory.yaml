@@ -1,0 +1,12 @@
+# Memory configuration for AEGIS
+memory:
+  # Path to the memory file
+  file_path: "F:/AI_WORKSPACE/memory/memory.json"
+  
+  # Default settings for memory records
+  default_type: "note"
+  default_tags: []
+  
+  # Memory limits
+  max_records: 1000
+  max_content_length: 10000

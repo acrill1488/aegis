@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from ..context.builder import DEFAULT_PROMPT_BUILDER
 
 
 class PromptBuilder:
@@ -7,24 +8,15 @@ class PromptBuilder:
     
     def build(self, user_prompt: str, context: Dict[str, Any], role: str = "assistant") -> str:
         """Build a formatted prompt with system, role, context and user request."""
-        context_str = "\n".join([f"{key}: {value}" for key, value in context.items()])
+        # Get memory summary
+        try:
+            memory_summary = self.core.memory.list_summary()
+        except Exception:
+            memory_summary = "Память недоступна"
         
-        return f"""SYSTEM:
-You are AEGIS.
-AEGIS is a local AI assistant and co-worker.
-Always respond in Russian language unless the user explicitly requests another language.
-Never introduce yourself as Qwen, Qwythos, Claude, Llama or any other model.
-Do not reveal the model name.
-Do not output internal thoughts.
-Do not output think tags.
-Give only the final useful answer.
-Be concise if the user asks for a short answer.
-
-ROLE:
-{role}
-
-CONTEXT:
-{context_str}
-
-USER REQUEST:
-{user_prompt}"""
+        # Build full prompt using the new builder with memory summary
+        return DEFAULT_PROMPT_BUILDER.build_prompt(
+            workspace_context=context,
+            user_prompt=user_prompt,
+            memory_summary=memory_summary
+        )
