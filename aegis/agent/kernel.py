@@ -8,6 +8,10 @@ class AgentKernel:
     
     def run(self, prompt: str, capability: str = "general", role: str = "assistant") -> str:
         """Run an agent with the given prompt and capability."""
+        # If capability is auto, detect it from the prompt
+        if capability == "auto":
+            capability = self.core.router.detect(prompt)
+        
         # Build context
         context_builder = ContextBuilder(self.core)
         context = context_builder.build()

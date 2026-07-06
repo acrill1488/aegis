@@ -30,6 +30,7 @@ from .task import task as task_app
 # Import plan commands
 from .plan import app as plan_app
 from .task import task as task_app
+from .router import app as router_app
 
 app = typer.Typer()
 console = Console()
@@ -41,6 +42,7 @@ app.add_typer(tools_app, name="tools", help="Tool registry commands")
 app.add_typer(task_app, name="task", help="Task management commands")
 app.add_typer(plan_app, name="plan", help="Plan management commands")
 app.add_typer(task_app, name="task", help="Task management commands")
+app.add_typer(router_app, name="router", help="Router commands")
 
 @app.command("execute")
 def execute_command(
@@ -223,7 +225,7 @@ def tools_status():
 @app.command()
 def ask(
     prompt: str = typer.Argument(...),
-    capability: str = typer.Option("general", "--capability", "-c"),
+    capability: str = typer.Option("auto", "--capability", "-c"),
     role: str = typer.Option("assistant", "--role", "-r")
 ):
     """Ask the AEGIS agent a question."""

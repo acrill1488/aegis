@@ -7,6 +7,7 @@ from aegis.tools.registry import ToolRegistry
 from aegis.planner.planner import Planner
 from aegis.core.registry import ServiceRegistry
 from aegis.executor.executor import ExecutionEngine
+from aegis.router.capability import CapabilityRouter
 
 class AegisCore:
     def __init__(self):
@@ -15,6 +16,7 @@ class AegisCore:
         self.tasks = TaskManager()
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
+        self.router = CapabilityRouter()
         
         # Register tools
         from aegis.tools.filesystem import FilesystemTool
@@ -32,6 +34,11 @@ class AegisCore:
         # Initialize executor
         self.executor = ExecutionEngine(self)
         self.registry.register("executor", self.executor)
+        
+        # Initialize agent kernel
+        from aegis.agent.kernel import AgentKernel
+        self.agent = AgentKernel(self)
+        self.registry.register("agent", self.agent)
 
     def get_task(self, task_id: str):
         return self.tasks.get(task_id)
