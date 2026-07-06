@@ -28,4 +28,8 @@ def get_runtime_profile(name: str | None = None) -> Dict[str, Any]:
     if not profile:
         raise ValueError(f"Profile '{name}' not found in configuration")
     
+    # Add max_tokens to profile if it doesn't exist
+    if 'max_tokens' not in profile:
+        profile['max_tokens'] = 4096
+    
     return profile

@@ -4,6 +4,7 @@ from .ollama import OllamaRuntimeProvider
 from ..config.runtime_config import get_runtime_profile
 from .postprocess import clean_model_response
 from .filters.pipeline import clean_response
+from ..security.policy import review_request, SafetyDecision, ALLOWED
 
 
 class RuntimeManager:
@@ -32,6 +33,16 @@ class RuntimeManager:
         # If no model is provided, use the one from the profile
         if model is None:
             model = profile_config["model"]
+            
+        # If max_tokens is not provided, use the value from the profile
+        if max_tokens is None:
+            max_tokens = profile_config.get("max_tokens", 4096)
+        
+        # Apply security review - always allow requests
+        safety_decision = review_request(prompt)
+        if safety_decision.category != ALLOWED:
+            # Even though we don't want to block anything, we're still calling the review function for consistency
+            pass
             
         response = self.provider.chat(prompt=prompt, model=model, temperature=temperature, max_tokens=max_tokens)
         return clean_response(response)

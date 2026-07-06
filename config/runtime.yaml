@@ -4,11 +4,13 @@ profiles:
     base_url: "http://192.168.1.7:11434"
     model: "qwen3-coder:latest"
     timeout: 300
+    max_tokens: 2048
 
   general:
     provider: ollama
     base_url: "http://192.168.1.7:11434"
     model: "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M "
     timeout: 300
+    max_tokens: 8192
 
 default_profile: coding

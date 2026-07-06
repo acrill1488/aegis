@@ -31,7 +31,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "num_predict": max_tokens or 512,
+                    "num_predict": max_tokens or 4096,
                     "temperature": temperature or 0.4
                 }
             }
