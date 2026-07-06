@@ -32,6 +32,7 @@ from .plan import app as plan_app
 from .task import task as task_app
 from .router import app as router_app
 from .brain import app as brain_app
+from .web import app as web_app
 
 app = typer.Typer()
 console = Console()
@@ -45,6 +46,7 @@ app.add_typer(task_app, name="task", help="Task management commands")
 app.add_typer(router_app, name="router", help="Router commands")
 app.add_typer(memory_app, name="memory", help="Memory commands")
 app.add_typer(brain_app, name="brain", help="Brain commands")
+app.add_typer(web_app, name="web", help="Web browser commands")
 
 @app.command("execute")
 def execute_command(
@@ -232,7 +234,7 @@ def ask(
 ):
     """Ask the AEGIS agent a question."""
     core = AegisCore()
-    response = core.agent.run(prompt, capability, role)
+    response = core.brain.ask(prompt, capability, role)
     console.print(f"[bold blue]Response:[/bold blue] {response}")
 
 

@@ -3,58 +3,70 @@ import re
 
 def clean_reasoning(text: str) -> str:
     """Clean reasoning blocks and phrases from the text."""
-    # Remove all XML-like tags (including single tags like <...>)
-    response = re.sub(r"</?[a-zA-Z0-9_:-]+[^>]*>", "", text)
-    
-    # Remove blocks enclosed in ```think``` tags
-    # First, find all occurrences of ```think ... ``` patterns
-    pattern = r'```think.*?```'
-    matches = list(re.finditer(pattern, response, re.DOTALL))
-    
-    # Process from end to start to maintain correct indices
-    result = response
-    for match in reversed(matches):
-        start, end = match.span()
-        result = result[:start] + result[end:]
-    
-    # Handle case where there's only a closing tag ```think without opening tag
-    # Find all closing tags that don't have corresponding opening tags
-    closing_tags = list(re.finditer(r'```think', result))
-    for match in reversed(closing_tags):
-        start, end = match.span()
-        # Remove everything from this point to the end of the string
-        result = result[:start]
-    
-    # Remove lines that start with or contain specific reasoning phrases
-    lines = result.split('\n')
+    lines = text.splitlines()
     cleaned_lines = []
-    for line in lines:
-        line_content = line.strip()
-        # Skip lines starting with the specified patterns
-        if line_content.startswith(("The user", "I need to", "I should", "I will", "I must", "However,", "Therefore,", "Now, I will", "Let's", "We need")):
-            continue
-        # Also check if the line contains any of these phrases
-        contains_phrase = False
-        for phrase in ["The user", "I need to", "I should", "I will", "I must", "However,", "Therefore,", "Now, I will", "Let's", "We need"]:
-            if phrase in line_content:
-                contains_phrase = True
-                break
-        if not contains_phrase and line_content:  # Only add non-empty lines that don't contain the phrases
+    in_initial_reasoning = False
+    
+    for i, line in enumerate(lines):
+        stripped_line = line.strip()
+        
+        # Check if this is an initial reasoning line (at the beginning of text)
+        if not in_initial_reasoning and i == 0:
+            if stripped_line.startswith(("First, I'll", "First, I will", "I will", 
+                                       "I need to", "I should", "The user asks",
+                                       "The user wants", "Let's", "Now, craft",
+                                       "Now I will", "Finally", "Review:",
+                                       "Based on the page", "To answer this",
+                                       "I'll summarize", "I will identify",
+                                       "I will analyze", "Thus,")):
+                in_initial_reasoning = True
+                continue  # Skip this line
+            else:
+                # This is not a reasoning starter, so add it to output
+                cleaned_lines.append(line)
+        elif in_initial_reasoning:
+            # Check if we've reached the end of the initial reasoning block
+            # We consider a block ended when we find the first normal Russian sentence
+            if stripped_line != "":
+                # This is a non-empty line, check if it looks like a proper response
+                # (has capital letter at start and reasonable length)
+                if stripped_line[0].isupper() and len(stripped_line) > 10:
+                    # This seems to be the start of the actual response
+                    in_initial_reasoning = False
+                    cleaned_lines.append(line)
+                else:
+                    # Still in initial reasoning block - skip this line
+                    continue
+            else:
+                # Empty line within reasoning block - skip it
+                continue
+        elif stripped_line == "**Суммарный ответ:**":
+            # Found the summary marker, remove everything before it including the marker itself
+            cleaned_lines = []
+        elif stripped_line.startswith("Итог:") or stripped_line.startswith("Ответ:"):
+            # Found summary marker, remove everything before it including the marker itself
+            cleaned_lines = []
+        else:
             cleaned_lines.append(line)
     
-    # Join lines and remove empty lines at the beginning
-    final_text = '\n'.join(cleaned_lines).strip()
+    result_text = "\n".join(cleaned_lines)
     
-    # Remove any remaining single ```think tags
-    final_text = re.sub(r'```think\s*', '', final_text)
+    # Handle special markers that should remove everything before them
+    if "**Суммарный ответ:**" in result_text:
+        parts = result_text.split("**Суммарный ответ:**", 1)
+        if len(parts) > 1:
+            return parts[1].strip()
+    elif "Итог:" in result_text:
+        parts = result_text.split("Итог:", 1)
+        if len(parts) > 1:
+            return parts[1].strip()
+    elif "Ответ:" in result_text:
+        parts = result_text.split("Ответ:", 1)
+        if len(parts) > 1:
+            return parts[1].strip()
     
-    # Remove empty lines at the beginning
-    lines = final_text.split('\n')
-    non_empty_lines = [line for line in lines if line.strip()]
-    response = '\n'.join(non_empty_lines) if non_empty_lines else ""
-    
-    # Remove all leading newlines
-    while response.startswith("\n"):
-        response = response[1:]
-    
-    return response
+    # Remove any remaining empty lines at the beginning
+    while result_text.startswith("\n"):
+        result_text = result_text[1:]
+        
+    return result_text

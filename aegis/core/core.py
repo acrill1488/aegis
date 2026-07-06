@@ -54,6 +54,11 @@ class AegisCore:
         from aegis.brain.reflection import ReflectionEngine
         self.reflection = ReflectionEngine(self)
         self.registry.register("reflection", self.reflection)
+        
+        # Initialize web browser
+        from aegis.web.browser import WebBrowser
+        self.web = WebBrowser(self)
+        self.registry.register("web", self.web)
 
     def get_task(self, task_id: str):
         return self.tasks.get(task_id)

@@ -1,0 +1,10 @@
+typer
+rich
+httpx
+pyyaml
+python-dotenv
+pydantic
+pydantic-settings
+mss
+pillow
+GitPython
