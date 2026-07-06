@@ -21,6 +21,26 @@ RESEARCH_MARKERS = (
     "https://",
 )
 
+RESEARCH_MARKERS += (
+    "find",
+    "current",
+    "latest",
+    "research",
+    "compare",
+    "comparison",
+    "versus",
+    " vs ",
+    "\u043d\u0430\u0439\u0434\u0438",
+    "\u0430\u043a\u0442\u0443\u0430\u043b",
+    "\u0441\u0435\u0439\u0447\u0430\u0441",
+    "\u0441\u0435\u0433\u043e\u0434\u043d\u044f",
+    "\u043f\u043e\u0441\u043b\u0435\u0434\u043d",
+    "\u0441\u0440\u0430\u0432\u043d\u0438",
+    "\u0438\u0441\u0441\u043b\u0435\u0434\u0443\u0439",
+    "\u0441\u0441\u044b\u043b\u043a",
+)
+
+
 CODING_MARKERS = (
     "код",
     "python",

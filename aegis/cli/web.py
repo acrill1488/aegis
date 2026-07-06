@@ -2,9 +2,33 @@
 
 import typer
 from typing import Optional
+from rich.console import Console
+from rich.table import Table
 from aegis.web.browser import WebBrowser
+from aegis.web.search import WebSearch
 
 app = typer.Typer(name="web", help="Web browser commands")
+console = Console()
+
+
+@app.command("search")
+def search(query: str = typer.Argument(...), max_results: int = typer.Option(5, "--max-results", "-n")):
+    """Search the web."""
+    results = WebSearch().search(query, max_results=max_results)
+
+    if not results:
+        console.print("[yellow]No search results found.[/yellow]")
+        return
+
+    table = Table(title="Web Search Results")
+    table.add_column("Title")
+    table.add_column("URL")
+    table.add_column("Snippet")
+
+    for result in results:
+        table.add_row(result.title, result.url, result.snippet)
+
+    console.print(table)
 
 @app.command("fetch")
 def fetch_url(url: str):

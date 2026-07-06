@@ -7,6 +7,7 @@ from typing import Any
 from .models import KnowledgeBundle, KnowledgeSource
 from .providers import (
     MemoryKnowledgeProvider,
+    WebSearchKnowledgeProvider,
     WebURLKnowledgeProvider,
     WorkspaceKnowledgeProvider,
 )
@@ -19,6 +20,7 @@ class KnowledgeEngine:
         self.core = core
         self.memory_provider = MemoryKnowledgeProvider(core)
         self.web_provider = WebURLKnowledgeProvider(core)
+        self.web_search_provider = WebSearchKnowledgeProvider(core)
         self.workspace_provider = WorkspaceKnowledgeProvider(core)
 
     def gather(self, query: str) -> KnowledgeBundle:
@@ -27,6 +29,8 @@ class KnowledgeEngine:
         sources.extend(self.memory_provider.gather(query))
         if self.web_provider.has_urls(query):
             sources.extend(self.web_provider.gather(query))
+        else:
+            sources.extend(self.web_search_provider.gather(query))
         sources.extend(self.workspace_provider.gather(query))
 
         invalid_sources = [

@@ -77,6 +77,7 @@ class ContextBuilderV2:
             "Context sources: "
             f"memory={counts.get('memory', 0)}, "
             f"web={counts.get('web', 0)}, "
+            f"web_search={counts.get('web_search', 0)}, "
             f"workspace={counts.get('workspace', 0)}"
         )
         if gaps:

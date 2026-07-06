@@ -4,6 +4,7 @@ from .engine import KnowledgeEngine
 from .models import KnowledgeBundle, KnowledgeSource
 from .providers import (
     MemoryKnowledgeProvider,
+    WebSearchKnowledgeProvider,
     WebURLKnowledgeProvider,
     WorkspaceKnowledgeProvider,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "KnowledgeEngine",
     "KnowledgeSource",
     "MemoryKnowledgeProvider",
+    "WebSearchKnowledgeProvider",
     "WebURLKnowledgeProvider",
     "WorkspaceKnowledgeProvider",
 ]
