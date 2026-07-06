@@ -45,6 +45,21 @@ class AegisCore:
         # Register memory
         self.registry.register("memory", self.memory)
         
+        # Initialize web browser
+        from aegis.web.browser import WebBrowser
+        self.web = WebBrowser(self)
+        self.registry.register("web", self.web)
+
+        # Initialize knowledge engine
+        from aegis.knowledge.engine import KnowledgeEngine
+        self.knowledge = KnowledgeEngine(self)
+        self.registry.register("knowledge", self.knowledge)
+
+        # Initialize context builder
+        from aegis.context.builder_v2 import ContextBuilderV2
+        self.context_builder = ContextBuilderV2(self)
+        self.registry.register("context_builder", self.context_builder)
+
         # Initialize brain engine
         from aegis.brain.engine import BrainEngine
         self.brain = BrainEngine(self)
@@ -54,11 +69,6 @@ class AegisCore:
         from aegis.brain.reflection import ReflectionEngine
         self.reflection = ReflectionEngine(self)
         self.registry.register("reflection", self.reflection)
-        
-        # Initialize web browser
-        from aegis.web.browser import WebBrowser
-        self.web = WebBrowser(self)
-        self.registry.register("web", self.web)
 
     def get_task(self, task_id: str):
         return self.tasks.get(task_id)

@@ -1,10 +1,18 @@
 """Web browser functionality for AEGIS."""
 
 import httpx
-from bs4 import BeautifulSoup
-import markdownify
 from typing import Dict, Optional, Any
 from urllib.parse import urlparse
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
+
+try:
+    import markdownify
+except ImportError:
+    markdownify = None
 
 
 class WebBrowser:
@@ -27,12 +35,15 @@ class WebBrowser:
                 }
             )
             
-            # Parse HTML content
-            soup = BeautifulSoup(response.text, 'lxml')
-            title = soup.title.string if soup.title else None
-            
-            # Convert HTML to markdown for preview
-            text_preview = markdownify.markdownify(response.text)[:3000]
+            title = None
+            if BeautifulSoup is not None:
+                soup = BeautifulSoup(response.text, "html.parser")
+                title = soup.title.string if soup.title else None
+
+            if markdownify is not None:
+                text_preview = markdownify.markdownify(response.text)[:3000]
+            else:
+                text_preview = response.text[:3000]
             
             return {
                 "url": url,
