@@ -3,13 +3,16 @@ import re
 
 def clean_reasoning(text: str) -> str:
     """Clean reasoning blocks and phrases from the text."""
+    # Remove all XML-like tags (including single tags like <...>)
+    response = re.sub(r"</?[a-zA-Z0-9_:-]+[^>]*>", "", text)
+    
     # Remove blocks enclosed in ```think``` tags
     # First, find all occurrences of ```think ... ``` patterns
     pattern = r'```think.*?```'
-    matches = list(re.finditer(pattern, text, re.DOTALL))
+    matches = list(re.finditer(pattern, response, re.DOTALL))
     
     # Process from end to start to maintain correct indices
-    result = text
+    result = response
     for match in reversed(matches):
         start, end = match.span()
         result = result[:start] + result[end:]
@@ -39,4 +42,19 @@ def clean_reasoning(text: str) -> str:
         if not contains_phrase and line_content:  # Only add non-empty lines that don't contain the phrases
             cleaned_lines.append(line)
     
-    return '\n'.join(cleaned_lines).strip()
+    # Join lines and remove empty lines at the beginning
+    final_text = '\n'.join(cleaned_lines).strip()
+    
+    # Remove any remaining single ```think tags
+    final_text = re.sub(r'```think\s*', '', final_text)
+    
+    # Remove empty lines at the beginning
+    lines = final_text.split('\n')
+    non_empty_lines = [line for line in lines if line.strip()]
+    response = '\n'.join(non_empty_lines) if non_empty_lines else ""
+    
+    # Remove all leading newlines
+    while response.startswith("\n"):
+        response = response[1:]
+    
+    return response
