@@ -1,0 +1,24 @@
+{
+  "id": "test-powershell-task-002",
+  "title": "Test PowerShell Safe Execution v4",
+  "goal": "Test safe execution of PowerShell commands with Executor v4",
+  "created_at": "2026-07-05T19:00:00.000000",
+  "updated_at": "2026-07-05T19:00:00.000000",
+  "status": "pending",
+  "priority": "normal",
+  "session_id": null,
+  "parent_id": null,
+  "steps": [
+    {
+      "id": 1,
+      "title": "Test Python Version Command",
+      "description": "Run python --version command",
+      "status": "pending",
+      "tool": "powershell",
+      "result": null
+    }
+  ],
+  "progress": 0,
+  "result": null,
+  "metadata": {}
+}

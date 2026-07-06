@@ -46,8 +46,15 @@ class ExecutionEngine:
                 if step.tool == "filesystem":
                     # For filesystem steps, perform safe operations
                     self._execute_filesystem_step(step)
+                elif step.tool == "powershell":
+                    # For PowerShell steps, execute safely only if command is allowed
+                    # Check if command is allowed before executing (require --no-dry-run flag)
+                    powershell_tool = self.dispatcher.tools["powershell"]
+                    # In real implementation, we would extract the actual command from the step
+                    # For now, we'll just execute the test command but only in non-dry-run mode
+                    self._execute_powershell_step(step)
                 else:
-                    # Skip non-filesystem steps (powershell, git, etc.)
+                    # Skip non-filesystem and non-powershell steps (git, etc.)
                     step.status = TaskStatus.WAITING
                     step.result = "Skipped: real execution for this tool is not implemented"
             
@@ -100,6 +107,31 @@ class ExecutionEngine:
             # For other filesystem operations, skip with warning
             step.status = TaskStatus.WAITING
             step.result = "Skipped: not a supported filesystem operation"
+    
+    def _execute_powershell_step(self, step):
+        """Execute a PowerShell step safely."""
+        # Get the PowerShell tool
+        powershell_tool = self.dispatcher.tools["powershell"]
+        
+        # For now, use test command as specified in requirements:
+        # "для шага powershell использовать тестовую команду: python --version"
+        test_command = "python --version"
+        
+        # Real execution mode - use execute method
+        # We must check if the command is allowed before executing
+        result = powershell_tool.execute("run", command=test_command)
+        
+        # Save stdout/stderr/result in step.result
+        step.result = {
+            "returncode": result.exit_code,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+        
+        if result.success:
+            step.status = TaskStatus.COMPLETED
+        else:
+            step.status = TaskStatus.FAILED
     
     def _validate_path_safety(self, path: str) -> bool:
         """Validate that the path is within F:\\AI_WORKSPACE."""

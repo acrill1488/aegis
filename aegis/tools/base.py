@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from aegis.tools.result import ToolResult
 
 
 class BaseTool(ABC):
@@ -19,4 +20,9 @@ class BaseTool(ABC):
     @abstractmethod
     def is_available(self) -> bool:
         """Check if the tool is available."""
+        pass
+    
+    @abstractmethod
+    def execute(self, action: str, **kwargs) -> ToolResult:
+        """Execute an action with the tool."""
         pass
