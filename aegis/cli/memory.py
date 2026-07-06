@@ -74,6 +74,7 @@ def search(query: str):
         table.add_row(record.id, record.title, record.type, preview)
 
     console.print(table)
+    console.print("[yellow]Use: aegis memory show <ID> to view full content.[/yellow]")
 
 
 @app.command()
