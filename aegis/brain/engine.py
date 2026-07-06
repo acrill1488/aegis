@@ -30,6 +30,14 @@ class BrainEngine:
         if capability == "auto":
             capability = self.core.router.detect(prompt)
 
+        skill = self.core.skills.detect(prompt)
+        if skill:
+            result = skill.execute(
+                prompt,
+                context={"capability": capability, "role": role},
+            )
+            return clean_response(result.output)
+
         context_bundle = self.core.context_builder.build(prompt)
         if self._requires_web_context(prompt) and self._valid_web_sources_count(context_bundle) == 0:
             return "Не удалось получить содержимое источника. Я не буду делать вывод без данных."

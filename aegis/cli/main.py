@@ -35,6 +35,7 @@ from .brain import app as brain_app
 from .web import app as web_app
 from .knowledge import app as knowledge_app
 from .context import app as context_app
+from .skills import app as skills_app
 
 app = typer.Typer()
 console = Console()
@@ -51,6 +52,7 @@ app.add_typer(brain_app, name="brain", help="Brain commands")
 app.add_typer(web_app, name="web", help="Web browser commands")
 app.add_typer(knowledge_app, name="knowledge", help="Knowledge Engine commands")
 app.add_typer(context_app, name="context", help="Context Builder commands")
+app.add_typer(skills_app, name="skills", help="Skill Framework commands")
 
 @app.command("execute")
 def execute_command(

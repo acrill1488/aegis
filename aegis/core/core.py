@@ -41,6 +41,11 @@ class AegisCore:
         from aegis.agent.kernel import AgentKernel
         self.agent = AgentKernel(self)
         self.registry.register("agent", self.agent)
+
+        # Initialize agent loop
+        from aegis.agent.loop import AgentExecutionLoop
+        self.agent_loop = AgentExecutionLoop(self)
+        self.registry.register("agent_loop", self.agent_loop)
         
         # Register memory
         self.registry.register("memory", self.memory)
@@ -59,6 +64,22 @@ class AegisCore:
         from aegis.context.builder_v2 import ContextBuilderV2
         self.context_builder = ContextBuilderV2(self)
         self.registry.register("context_builder", self.context_builder)
+
+        # Initialize skills
+        from aegis.skills.builtin import (
+            CodingSkill,
+            ConversationSkill,
+            PlanningSkill,
+            ResearchSkill,
+        )
+        from aegis.skills.registry import SkillRegistry
+
+        self.skills = SkillRegistry()
+        self.skills.register(ResearchSkill(self))
+        self.skills.register(CodingSkill(self))
+        self.skills.register(PlanningSkill(self))
+        self.skills.register(ConversationSkill(self))
+        self.registry.register("skills", self.skills)
 
         # Initialize brain engine
         from aegis.brain.engine import BrainEngine
