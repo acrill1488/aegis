@@ -9,6 +9,7 @@ from aegis.core.registry import ServiceRegistry
 from aegis.executor.executor import ExecutionEngine
 from aegis.router.capability import CapabilityRouter
 from aegis.memory.manager import MemoryManager
+from aegis.system import SystemAPI
 
 class AegisCore:
     def __init__(self):
@@ -19,6 +20,7 @@ class AegisCore:
         self.registry = ServiceRegistry()
         self.router = CapabilityRouter()
         self.memory = MemoryManager()
+        self.system = SystemAPI()
         
         # Register tools
         from aegis.tools.filesystem import FilesystemTool
@@ -49,6 +51,9 @@ class AegisCore:
         
         # Register memory
         self.registry.register("memory", self.memory)
+
+        # Register system status API
+        self.registry.register("system", self.system)
         
         # Initialize web browser
         from aegis.web.browser import WebBrowser

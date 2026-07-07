@@ -36,6 +36,8 @@ from .web import app as web_app
 from .knowledge import app as knowledge_app
 from .context import app as context_app
 from .skills import app as skills_app
+from .retriever import app as retriever_app
+from .system import app as system_app
 
 app = typer.Typer()
 console = Console()
@@ -51,8 +53,10 @@ app.add_typer(memory_app, name="memory", help="Memory commands")
 app.add_typer(brain_app, name="brain", help="Brain commands")
 app.add_typer(web_app, name="web", help="Web browser commands")
 app.add_typer(knowledge_app, name="knowledge", help="Knowledge Engine commands")
+app.add_typer(retriever_app, name="retriever", help="Retriever pipeline commands")
 app.add_typer(context_app, name="context", help="Context Builder commands")
 app.add_typer(skills_app, name="skills", help="Skill Framework commands")
+app.add_typer(system_app, name="system", help="System status commands")
 
 @app.command("execute")
 def execute_command(

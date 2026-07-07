@@ -22,6 +22,13 @@ class KnowledgeEngine:
         self.web_provider = WebURLKnowledgeProvider(core)
         self.web_search_provider = WebSearchKnowledgeProvider(core)
         self.workspace_provider = WorkspaceKnowledgeProvider(core)
+        self.retriever_pipeline = None
+        try:
+            from aegis.retriever.pipeline import RetrieverPipeline
+
+            self.retriever_pipeline = RetrieverPipeline(core=core)
+        except Exception:
+            self.retriever_pipeline = None
 
     def gather(self, query: str) -> KnowledgeBundle:
         sources: list[KnowledgeSource] = []
