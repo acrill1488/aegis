@@ -2,6 +2,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from aegis.core.core import AegisCore
 from aegis.memory.manager import MemoryManager
 
 app = typer.Typer()
@@ -16,12 +17,22 @@ def add(
     tag: list[str] = typer.Option([], "--tag", "-T"),
 ):
     """Add a new memory record."""
-    manager = MemoryManager()
-    record = manager.add(
+    core = AegisCore()
+    record = core.memory.add(
         type=type,
         title=title,
         content=content,
         tags=list(tag),
+    )
+    core.events.publish(
+        event_type="memory.record_added",
+        source="memory",
+        payload={
+            "id": record.id,
+            "title": record.title,
+            "type": record.type,
+            "tags": record.tags,
+        },
     )
     console.print(f"[green]Added memory record:[/green] {record.id}")
 

@@ -8,6 +8,7 @@ from aegis.planner.planner import Planner
 from aegis.core.registry import ServiceRegistry
 from aegis.executor.executor import ExecutionEngine
 from aegis.router.capability import CapabilityRouter
+from aegis.events import EventBus
 from aegis.memory.manager import MemoryManager
 from aegis.system import SystemAPI
 
@@ -19,7 +20,9 @@ class AegisCore:
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
         self.router = CapabilityRouter()
-        self.memory = MemoryManager()
+        self.events = EventBus()
+        self.registry.register("events", self.events)
+        self.memory = MemoryManager(event_bus=self.events)
         self.system = SystemAPI()
         
         # Register tools

@@ -3,12 +3,16 @@ import json
 import uuid
 from datetime import datetime
 from typing import List, Optional
+
+from aegis.events import EventBus
+
 from .models import MemoryRecord
 
 class MemoryManager:
     """Memory manager for AEGIS system."""
     
-    def __init__(self):
+    def __init__(self, event_bus: Optional[EventBus] = None):
+        self.event_bus = event_bus
         # Используем путь F:\AI_WORKSPACE\memory\memory.json как указано в задаче
         self.memory_file = r"F:\AI_WORKSPACE\memory\memory.json"
         os.makedirs(os.path.dirname(self.memory_file), exist_ok=True)
@@ -44,7 +48,7 @@ class MemoryManager:
         
         # Сохраняем обновленный список
         self._save_records(records)
-        
+
         return record
     
     def list(self) -> List[MemoryRecord]:

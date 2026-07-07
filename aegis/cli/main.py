@@ -38,6 +38,7 @@ from .context import app as context_app
 from .skills import app as skills_app
 from .retriever import app as retriever_app
 from .system import app as system_app
+from .events import app as events_app
 
 app = typer.Typer()
 console = Console()
@@ -57,6 +58,7 @@ app.add_typer(retriever_app, name="retriever", help="Retriever pipeline commands
 app.add_typer(context_app, name="context", help="Context Builder commands")
 app.add_typer(skills_app, name="skills", help="Skill Framework commands")
 app.add_typer(system_app, name="system", help="System status commands")
+app.add_typer(events_app, name="events", help="Event bus commands")
 
 @app.command("execute")
 def execute_command(
