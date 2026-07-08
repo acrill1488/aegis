@@ -15,6 +15,7 @@ from aegis.memory.manager import MemoryManager
 from aegis.system import SystemAPI
 from aegis.live import ContextStore
 from aegis.agents.runtime import AgentRuntime, EchoAgent
+from aegis.distributed import MachineRegistry
 
 class AegisCore:
     def __init__(self):
@@ -29,6 +30,9 @@ class AegisCore:
         self.registry.register("scheduler", self.scheduler)
         self.registry.register("watcher_registry", self.scheduler.watcher_registry)
         self.registry.register("events", self.events)
+        self.machine_registry = MachineRegistry()
+        self.machine_registry.event_bus = self.events
+        self.registry.register("machine_registry", self.machine_registry)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)
         self.agent_runtime.register(EchoAgent())

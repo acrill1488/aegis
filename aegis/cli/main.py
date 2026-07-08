@@ -44,6 +44,7 @@ from .live import app as live_app
 from .agents import app as agents_app
 from .windows import app as windows_app
 from .scheduler import app as scheduler_app
+from .distributed import app as distributed_app
 
 app = typer.Typer()
 console = Console()
@@ -69,6 +70,7 @@ app.add_typer(live_app, name="live", help="Live context commands")
 app.add_typer(agents_app, name="agents", help="Agent runtime commands")
 app.add_typer(windows_app, name="windows", help="Windows Agent commands")
 app.add_typer(scheduler_app, name="scheduler", help="Scheduler commands")
+app.add_typer(distributed_app, name="distributed", help="Distributed runtime commands")
 
 @app.command("execute")
 def execute_command(
