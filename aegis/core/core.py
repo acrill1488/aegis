@@ -12,6 +12,7 @@ from aegis.events import EventBus
 from aegis.memory.manager import MemoryManager
 from aegis.system import SystemAPI
 from aegis.live import ContextStore
+from aegis.agents.runtime import AgentRuntime, EchoAgent
 
 class AegisCore:
     def __init__(self):
@@ -23,6 +24,9 @@ class AegisCore:
         self.router = CapabilityRouter()
         self.events = EventBus()
         self.registry.register("events", self.events)
+        self.agent_runtime = AgentRuntime(self)
+        self.registry.register("agent_runtime", self.agent_runtime)
+        self.agent_runtime.register(EchoAgent())
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
         self.system = SystemAPI()
