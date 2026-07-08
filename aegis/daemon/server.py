@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-from aegis.agents.windows import ProcessWatcher
+from aegis.agents.windows import ProcessWatcher, SystemWatcher
 from aegis.core.core import AegisCore
 
 
@@ -76,6 +76,7 @@ def _core(app: FastAPI) -> AegisCore:
 
 def _start_default_scheduler_tasks(core: AegisCore) -> None:
     ProcessWatcher(core).start()
+    SystemWatcher(core).start()
     core.scheduler.start()
 
 

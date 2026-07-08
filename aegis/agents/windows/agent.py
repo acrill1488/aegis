@@ -41,6 +41,12 @@ class WindowsAgent(BaseAgent):
                     metadata={"sensitivity": "local_system_state"},
                 ),
                 AgentCapability(
+                    id="windows.system.metrics",
+                    description="Read current local CPU, memory, disk, network, and internet metrics.",
+                    permissions=["windows.system.read"],
+                    metadata={"sensitivity": "local_system_state"},
+                ),
+                AgentCapability(
                     id="windows.context.snapshot",
                     description="Read the current AEGIS live context snapshot.",
                     permissions=["live_context.read"],
@@ -55,6 +61,7 @@ class WindowsAgent(BaseAgent):
         handlers = {
             "windows.process.list": self._process_list,
             "windows.system.status": self._system_status,
+            "windows.system.metrics": self._system_metrics,
             "windows.context.snapshot": self._context_snapshot,
         }
         handler = handlers.get(invocation.capability_id)
@@ -93,6 +100,11 @@ class WindowsAgent(BaseAgent):
     def _system_status(self) -> dict:
         return {"status": to_plain(self.core.system.status())}
 
+    def _system_metrics(self) -> dict:
+        from aegis.agents.windows.system_watcher import SystemWatcher
+
+        return {"metrics": SystemWatcher(self.core).snapshot()}
+
     def _context_snapshot(self) -> dict:
         snapshot = self.core.live_context.snapshot()
         return {"entries": [to_plain(entry) for entry in snapshot.entries]}
@@ -108,4 +120,3 @@ def _require_psutil() -> None:
             "WindowsAgent requires psutil. Install dependencies with "
             "`pip install -r requirements/base.txt`."
         )
-

@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.json import JSON
 from rich.table import Table
 
-from aegis.agents.windows import ProcessWatcher
+from aegis.agents.windows import ProcessWatcher, SystemWatcher
 from aegis.core.core import AegisCore
 from aegis.serialization import to_plain
 
@@ -72,6 +72,7 @@ def run_once(task_name: str = typer.Argument(..., metavar="TASK_NAME")):
 
 
 def _register_default_tasks(core: AegisCore) -> None:
-    if core.scheduler.registry.get("process-watcher") is not None:
-        return
-    ProcessWatcher(core).start()
+    if core.scheduler.registry.get("process-watcher") is None:
+        ProcessWatcher(core).start()
+    if core.scheduler.registry.get("system-watcher") is None:
+        SystemWatcher(core).start()

@@ -6,7 +6,7 @@ from rich.json import JSON
 from rich.table import Table
 
 from aegis.agents.runtime import AgentInvocation
-from aegis.agents.windows import ProcessWatcher
+from aegis.agents.windows import ProcessWatcher, SystemWatcher
 from aegis.core.core import AegisCore
 from aegis.serialization import to_plain
 
@@ -20,6 +20,13 @@ console = Console()
 def status():
     """Show Windows system status through WindowsAgent."""
     result = _invoke("windows.system.status")
+    _print_json(result.output)
+
+
+@app.command("system")
+def system():
+    """Show Windows system metrics through WindowsAgent."""
+    result = _invoke("windows.system.metrics")
     _print_json(result.output)
 
 
@@ -80,6 +87,34 @@ def watch_processes(
         core.scheduler.stop()
 
 
+@app.command("watch-system")
+def watch_system(
+    interval_seconds: float = typer.Option(2.0, "--interval-seconds", "--interval"),
+):
+    """Watch system metrics and threshold events in the foreground."""
+    core = AegisCore()
+    _require_windows_agent(core)
+    watcher = SystemWatcher(core, interval_seconds=interval_seconds, on_event=_print_event)
+
+    try:
+        watcher.start()
+    except RuntimeError as exc:
+        console.print(f"[red]Cannot start system watcher:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print("Watching Windows system metrics")
+    console.print("Press Ctrl+C to stop")
+    core.scheduler.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("[yellow]Stopping system watcher...[/yellow]")
+    finally:
+        watcher.stop()
+        core.scheduler.stop()
+
+
 def _invoke(capability_id: str):
     core = AegisCore()
     _require_windows_agent(core)
@@ -100,7 +135,12 @@ def _require_windows_agent(core: AegisCore) -> None:
 
 
 def _print_event(event_type: str, payload: dict) -> None:
-    console.print(f"{event_type} pid={payload['pid']} name={payload['name']}")
+    details = " ".join(
+        f"{key}={value}"
+        for key, value in payload.items()
+        if key not in {"event", "timestamp"}
+    )
+    console.print(f"{event_type} {details}".rstrip())
 
 
 def _print_json(data: dict | list) -> None:
