@@ -1,6 +1,4 @@
 import socket
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 
 from aegis.agents.runtime import (
     AgentCapability,
@@ -11,6 +9,7 @@ from aegis.agents.runtime import (
     AgentInvocationResult,
     BaseAgent,
 )
+from aegis.serialization import to_plain
 
 try:
     import psutil
@@ -92,11 +91,11 @@ class WindowsAgent(BaseAgent):
         return {"processes": processes}
 
     def _system_status(self) -> dict:
-        return {"status": _to_plain(self.core.system.status())}
+        return {"status": to_plain(self.core.system.status())}
 
     def _context_snapshot(self) -> dict:
         snapshot = self.core.live_context.snapshot()
-        return {"entries": [_to_plain(entry) for entry in snapshot.entries]}
+        return {"entries": [to_plain(entry) for entry in snapshot.entries]}
 
 
 def _memory_mb(value: int | float) -> float:
@@ -110,14 +109,3 @@ def _require_psutil() -> None:
             "`pip install -r requirements/base.txt`."
         )
 
-
-def _to_plain(value):
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value):
-        return _to_plain(asdict(value))
-    if isinstance(value, dict):
-        return {key: _to_plain(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_to_plain(item) for item in value]
-    return value

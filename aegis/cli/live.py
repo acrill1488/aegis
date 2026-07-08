@@ -10,6 +10,7 @@ from rich.json import JSON
 from aegis.core.core import AegisCore
 from aegis.live.models import ContextEntry, ContextSnapshot
 from aegis.live.watchers import WorkspaceWatcher
+from aegis.serialization import to_plain
 
 app = typer.Typer()
 console = Console()
@@ -36,7 +37,7 @@ def _snapshot_to_dict(snapshot: ContextSnapshot) -> dict:
 
 
 def _print_json(data: dict | list) -> None:
-    console.print(JSON.from_data(data))
+    console.print(JSON.from_data(to_plain(data)))
 
 
 def _parse_json_object(raw_json: str, option_name: str) -> dict:

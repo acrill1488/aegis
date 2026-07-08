@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import typer
 from rich.console import Console
 
 from aegis.daemon.client import DaemonClient
+from aegis.serialization import to_json
 
 app = typer.Typer()
 console = Console()
@@ -68,4 +68,4 @@ def events(base_url: str = typer.Option("http://127.0.0.1:8765", "--base-url")):
 
 
 def _print_json(data: Any) -> None:
-    console.print_json(json.dumps(data, ensure_ascii=False))
+    console.print_json(to_json(data))

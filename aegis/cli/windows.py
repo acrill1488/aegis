@@ -1,6 +1,4 @@
 import time
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 
 import typer
 from rich.console import Console
@@ -10,6 +8,7 @@ from rich.table import Table
 from aegis.agents.runtime import AgentInvocation
 from aegis.agents.windows import ProcessWatcher
 from aegis.core.core import AegisCore
+from aegis.serialization import to_plain
 
 WINDOWS_AGENT_ID = "windows-agent"
 
@@ -105,16 +104,4 @@ def _print_event(event_type: str, payload: dict) -> None:
 
 
 def _print_json(data: dict | list) -> None:
-    console.print(JSON.from_data(_to_plain(data)))
-
-
-def _to_plain(value):
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value):
-        return _to_plain(asdict(value))
-    if isinstance(value, dict):
-        return {key: _to_plain(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_to_plain(item) for item in value]
-    return value
+    console.print(JSON.from_data(to_plain(data)))

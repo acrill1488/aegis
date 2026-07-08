@@ -5,6 +5,7 @@ from rich.table import Table
 
 from aegis.agents.windows import ProcessWatcher
 from aegis.core.core import AegisCore
+from aegis.serialization import to_plain
 
 
 app = typer.Typer()
@@ -17,7 +18,7 @@ def status():
     core = AegisCore()
     try:
         _register_default_tasks(core)
-        console.print(JSON.from_data(core.scheduler.status()))
+        console.print(JSON.from_data(to_plain(core.scheduler.status())))
     finally:
         core.scheduler.stop()
 
@@ -67,7 +68,7 @@ def run_once(task_name: str = typer.Argument(..., metavar="TASK_NAME")):
     finally:
         core.scheduler.stop()
 
-    console.print(JSON.from_data(result.status()))
+    console.print(JSON.from_data(to_plain(result.status())))
 
 
 def _register_default_tasks(core: AegisCore) -> None:

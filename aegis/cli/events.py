@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from aegis.core.core import AegisCore
+from aegis.serialization import to_json
 
 app = typer.Typer()
 console = Console()
@@ -55,7 +56,7 @@ def history(limit: int = typer.Option(50, "--limit", "-n")):
             event.type,
             event.source,
             event.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            json.dumps(event.payload, ensure_ascii=False),
+            to_json(event.payload, indent=None),
         )
 
     console.print(table)

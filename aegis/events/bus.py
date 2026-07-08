@@ -6,6 +6,8 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
+from aegis.serialization import to_json, to_plain
+
 from .models import AegisEvent, EventReceipt
 
 
@@ -38,7 +40,7 @@ class EventBus:
             id=str(uuid.uuid4()),
             type=event_type,
             source=source,
-            payload=dict(payload or {}),
+            payload=to_plain(dict(payload or {})),
             created_at=datetime.now(),
             trace_id=trace_id,
         )
@@ -105,6 +107,6 @@ class EventBus:
             for event in self._history
         ]
         self._history_file.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
+            to_json(data),
             encoding="utf-8",
         )

@@ -1,6 +1,4 @@
 import json
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 from pathlib import Path
 
 import typer
@@ -9,6 +7,7 @@ from rich.table import Table
 
 from aegis.agents.runtime import AgentInvocation
 from aegis.core.core import AegisCore
+from aegis.serialization import to_plain
 
 app = typer.Typer()
 console = Console()
@@ -46,7 +45,7 @@ def start_agent(agent_id: str = typer.Argument(..., metavar="AGENT_ID")):
     """Start an agent."""
     core = AegisCore()
     descriptor = _call(lambda: core.agent_runtime.start(agent_id))
-    console.print_json(data=_to_plain(descriptor))
+    console.print_json(data=to_plain(descriptor))
 
 
 @app.command("stop")
@@ -57,7 +56,7 @@ def stop_agent(
     """Stop an agent."""
     core = AegisCore()
     descriptor = _call(lambda: core.agent_runtime.stop(agent_id, reason=reason))
-    console.print_json(data=_to_plain(descriptor))
+    console.print_json(data=to_plain(descriptor))
 
 
 @app.command("health")
@@ -65,7 +64,7 @@ def health_agent(agent_id: str = typer.Argument(..., metavar="AGENT_ID")):
     """Show agent health."""
     core = AegisCore()
     health = core.agent_runtime.health(agent_id)
-    console.print_json(data=_to_plain(health))
+    console.print_json(data=to_plain(health))
 
 
 @app.command("invoke")
@@ -84,7 +83,7 @@ def invoke_agent(
             AgentInvocation(capability_id=capability_id, payload=payload),
         )
     )
-    console.print_json(data=_to_plain(result))
+    console.print_json(data=to_plain(result))
     if not result.success:
         raise typer.Exit(code=1)
 
@@ -122,14 +121,3 @@ def _call(action):
         console.print(f"[red]{exc.args[0]}[/red]")
         raise typer.Exit(code=1) from exc
 
-
-def _to_plain(value):
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value):
-        return _to_plain(asdict(value))
-    if isinstance(value, dict):
-        return {key: _to_plain(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_to_plain(item) for item in value]
-    return value

@@ -1,6 +1,6 @@
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 from typing import Any
+
+from aegis.serialization import to_plain
 
 from .base import BaseAgent
 from .models import (
@@ -151,22 +151,8 @@ class AgentRuntime:
             events.publish(
                 event_type,
                 source=f"agent_runtime:{agent_id}",
-                payload=_to_plain(payload),
+                payload=to_plain(payload),
                 trace_id=trace_id,
             )
         except Exception:
             return
-
-
-def _to_plain(value):
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value):
-        return _to_plain(asdict(value))
-    if isinstance(value, dict):
-        return {key: _to_plain(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_to_plain(item) for item in value]
-    if isinstance(value, tuple):
-        return tuple(_to_plain(item) for item in value)
-    return value
