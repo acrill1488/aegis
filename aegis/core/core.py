@@ -27,6 +27,7 @@ class AegisCore:
         self.router = CapabilityRouter()
         self.events = EventBus()
         self.registry.register("scheduler", self.scheduler)
+        self.registry.register("watcher_registry", self.scheduler.watcher_registry)
         self.registry.register("events", self.events)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)

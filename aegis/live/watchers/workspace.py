@@ -2,6 +2,8 @@ import logging
 from pathlib import Path
 from typing import Any, Callable
 
+from aegis.watchers import BaseWatcher
+
 try:
     from watchdog.events import FileSystemEvent, FileSystemEventHandler
     from watchdog.observers import Observer
@@ -41,7 +43,7 @@ class _WorkspaceEventHandler(FileSystemEventHandler):
         self._watcher.handle_event(event)
 
 
-class WorkspaceWatcher:
+class WorkspaceWatcher(BaseWatcher):
     """Watch workspace file changes and mirror them into AEGIS Live Context."""
 
     source = "workspace_watcher"
@@ -53,7 +55,14 @@ class WorkspaceWatcher:
         on_event: Callable[[str, dict], None] | None = None,
         ignore_dirs: tuple[str, ...] | None = None,
     ):
-        self.core = core
+        super().__init__(
+            id="workspace-watcher",
+            name="Workspace Watcher",
+            interval=1,
+            scheduler=getattr(core, "scheduler", None),
+            event_bus=core.events,
+            live_context=core.live_context,
+        )
         self.root_path = Path(path).resolve()
         self.path = str(self.root_path)
         self.recursive = True
@@ -84,6 +93,7 @@ class WorkspaceWatcher:
         self._observer.start()
         self._running = True
         self._error = None
+        super().start()
         return self.status()
 
     def stop(self) -> None:
@@ -92,6 +102,7 @@ class WorkspaceWatcher:
             self._observer.join()
             self._observer = None
         self._running = False
+        super().stop()
 
     def status(self) -> dict:
         observer_alive = bool(
@@ -108,6 +119,10 @@ class WorkspaceWatcher:
             "error": self._error,
         }
 
+    def tick(self) -> None:
+        self._set_workspace_root()
+        self.mark_tick_success()
+
     def handle_event(self, event: FileSystemEvent) -> None:
         payload = self._payload_for_event(event)
         if payload is None:
@@ -115,15 +130,10 @@ class WorkspaceWatcher:
         event_name = payload["event"]
 
         try:
-            self.core.events.publish(
-                event_name,
-                source=self.source,
-                payload=payload,
-            )
-            self.core.live_context.set(
+            self.publish(event_name, payload)
+            self.update_context(
                 key="workspace.last_event",
                 value=payload,
-                source=self.source,
                 ttl_seconds=3600,
             )
             self._set_workspace_root()
@@ -183,8 +193,7 @@ class WorkspaceWatcher:
             self.on_event(message, payload)
 
     def _set_workspace_root(self) -> None:
-        self.core.live_context.set(
+        self.update_context(
             key="workspace.root",
             value={"path": self.path},
-            source=self.source,
         )

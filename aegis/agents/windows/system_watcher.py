@@ -2,6 +2,8 @@ import socket
 from datetime import datetime
 from typing import Callable
 
+from aegis.watchers import BaseWatcher
+
 try:
     import psutil
 except ImportError:  # pragma: no cover - exercised only in incomplete environments.
@@ -12,7 +14,7 @@ SystemEventCallback = Callable[[str, dict], None]
 SYSTEM_WATCHER_TASK_NAME = "system-watcher"
 
 
-class SystemWatcher:
+class SystemWatcher(BaseWatcher):
     """Watch local system metrics and mirror them into Live Context."""
 
     source = "system_watcher"
@@ -31,7 +33,14 @@ class SystemWatcher:
         internet_port: int = 443,
         internet_timeout_seconds: float = 1.0,
     ):
-        self.core = core
+        super().__init__(
+            id=SYSTEM_WATCHER_TASK_NAME,
+            name="System Watcher",
+            interval=interval_seconds,
+            scheduler=core.scheduler,
+            event_bus=core.events,
+            live_context=core.live_context,
+        )
         self.interval_seconds = interval_seconds
         self.on_event = on_event
         self.cpu_high_percent = cpu_high_percent
@@ -57,23 +66,20 @@ class SystemWatcher:
             return self.status()
 
         self.tick()
-        self.core.scheduler.register_periodic(
-            self._task_name,
-            self.tick,
-            self.interval_seconds,
-            replace=True,
-        )
+        self.scheduler.watcher_registry.register(self, replace=True)
         self._running = True
         self._error = None
+        super().start()
         return self.status()
 
     def stop(self) -> None:
-        self.core.scheduler.unregister(self._task_name)
+        self.scheduler.watcher_registry.unregister(self.id)
         self._running = False
+        super().stop()
 
     def status(self) -> dict:
-        scheduler_status = self.core.scheduler.status()
-        task = self.core.scheduler.registry.get(self._task_name)
+        scheduler_status = self.scheduler.status()
+        task = self.scheduler.registry.get(self._task_name)
         thread_alive = bool(scheduler_status["thread_alive"] and task is not None)
         return {
             "watcher": "system",
@@ -94,8 +100,10 @@ class SystemWatcher:
             self._publish_threshold_events(metrics)
             self._last_metrics = metrics
             self._error = None
+            self.mark_tick_success()
         except Exception as exc:
             self._error = str(exc)
+            self.mark_tick_error(exc)
             raise
 
     def snapshot(self) -> dict:
@@ -192,10 +200,9 @@ class SystemWatcher:
     def _set_context(self, metrics: dict) -> None:
         ttl_seconds = max(int(float(self.interval_seconds) * 3), 6)
         for key in ("cpu", "memory", "disk", "network", "internet"):
-            self.core.live_context.set(
+            self.update_context(
                 key=f"system.{key}",
                 value=metrics[key],
-                source=self.source,
                 ttl_seconds=ttl_seconds,
             )
 
@@ -237,15 +244,10 @@ class SystemWatcher:
         event_payload["event"] = event_type
         event_payload["timestamp"] = datetime.now().isoformat()
 
-        self.core.events.publish(
-            event_type,
-            source=self.source,
-            payload=event_payload,
-        )
-        self.core.live_context.set(
+        self.publish(event_type, event_payload)
+        self.update_context(
             key="system.last_event",
             value=event_payload,
-            source=self.source,
             ttl_seconds=3600,
         )
         self._last_event = event_payload
