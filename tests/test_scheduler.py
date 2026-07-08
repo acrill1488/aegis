@@ -5,6 +5,8 @@ from aegis.agents.windows import process_watcher
 from aegis.agents.windows.process_watcher import ProcessWatcher
 from aegis.agents.windows import system_watcher
 from aegis.agents.windows.system_watcher import SystemWatcher
+from aegis.agents.windows import window_watcher
+from aegis.agents.windows.window_watcher import WindowWatcher
 from aegis.core.core import AegisCore
 from aegis.runtime.scheduler import Scheduler
 
@@ -156,6 +158,56 @@ def test_system_watcher_publishes_internet_transitions(monkeypatch):
     assert "system.internet_restored" in event_types
 
 
+def test_window_watcher_uses_scheduler_and_updates_context(monkeypatch):
+    core = _FakeCore()
+    watcher = WindowWatcher(core, interval_seconds=0.05)
+
+    monkeypatch.setattr(window_watcher, "win32gui", _FakeWin32Gui)
+    monkeypatch.setattr(window_watcher, "win32process", _FakeWin32Process)
+    monkeypatch.setattr(window_watcher, "psutil", _FakeWindowPsutil)
+
+    try:
+        status = watcher.start()
+        assert status["running"] is True
+        assert status["thread_alive"] is False
+        assert core.scheduler.registry.get("window-watcher") is not None
+
+        keys = {entry["key"] for entry in core.live_context.entries}
+        assert {
+            "windows.active_window",
+            "windows.active_process",
+            "windows.active_pid",
+            "windows.last_window_event",
+        }.issubset(keys)
+        assert core.events.published[0][0] == "window.focused"
+
+        core.scheduler.start()
+        assert watcher.status()["thread_alive"] is True
+
+        watcher.stop()
+
+        assert watcher.status()["running"] is False
+        assert core.scheduler.registry.get("window-watcher") is None
+    finally:
+        core.scheduler.stop()
+
+
+def test_window_watcher_publishes_changed_when_focus_changes(monkeypatch):
+    core = _FakeCore()
+    watcher = WindowWatcher(core)
+    gui = _ChangingWin32Gui()
+
+    monkeypatch.setattr(window_watcher, "win32gui", gui)
+    monkeypatch.setattr(window_watcher, "win32process", _FakeWin32Process)
+    monkeypatch.setattr(window_watcher, "psutil", _FakeWindowPsutil)
+
+    watcher.tick()
+    watcher.tick()
+
+    event_types = [event_type for event_type, _source, _payload in core.events.published]
+    assert event_types == ["window.focused", "window.changed", "window.focused"]
+
+
 class _FakeCore:
     def __init__(self):
         self.scheduler = Scheduler(tick_seconds=0.005)
@@ -253,3 +305,45 @@ class _FakeSystemPsutil:
     @staticmethod
     def net_if_addrs():
         return {"eth0": [_FakeAddress()]}
+
+
+class _FakeWin32Gui:
+    @staticmethod
+    def GetForegroundWindow():
+        return 100
+
+    @staticmethod
+    def GetWindowText(hwnd):
+        return "Example Window"
+
+
+class _ChangingWin32Gui:
+    def __init__(self):
+        self._hwnds = iter([100, 200])
+
+    def GetForegroundWindow(self):
+        return next(self._hwnds)
+
+    def GetWindowText(self, hwnd):
+        return f"Example Window {hwnd}"
+
+
+class _FakeWin32Process:
+    @staticmethod
+    def GetWindowThreadProcessId(hwnd):
+        return (1, hwnd + 1000)
+
+
+class _FakePsutilProcess:
+    def __init__(self, pid):
+        self.pid = pid
+
+    def name(self):
+        return f"example-{self.pid}.exe"
+
+
+class _FakeWindowPsutil:
+    NoSuchProcess = RuntimeError
+    AccessDenied = PermissionError
+    ZombieProcess = RuntimeError
+    Process = _FakePsutilProcess

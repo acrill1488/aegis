@@ -6,7 +6,7 @@ from rich.json import JSON
 from rich.table import Table
 
 from aegis.agents.runtime import AgentInvocation
-from aegis.agents.windows import ProcessWatcher, SystemWatcher
+from aegis.agents.windows import ProcessWatcher, SystemWatcher, WindowWatcher
 from aegis.core.core import AegisCore
 from aegis.serialization import to_plain
 
@@ -27,6 +27,13 @@ def status():
 def system():
     """Show Windows system metrics through WindowsAgent."""
     result = _invoke("windows.system.metrics")
+    _print_json(result.output)
+
+
+@app.command("window")
+def window():
+    """Show the active Windows foreground window through WindowsAgent."""
+    result = _invoke("windows.window.active")
     _print_json(result.output)
 
 
@@ -110,6 +117,34 @@ def watch_system(
             time.sleep(1)
     except KeyboardInterrupt:
         console.print("[yellow]Stopping system watcher...[/yellow]")
+    finally:
+        watcher.stop()
+        core.scheduler.stop()
+
+
+@app.command("watch-window")
+def watch_window(
+    interval_seconds: float = typer.Option(0.5, "--interval-seconds", "--interval"),
+):
+    """Watch active Windows foreground window changes in the foreground."""
+    core = AegisCore()
+    _require_windows_agent(core)
+    watcher = WindowWatcher(core, interval_seconds=interval_seconds, on_event=_print_event)
+
+    try:
+        watcher.start()
+    except RuntimeError as exc:
+        console.print(f"[red]Cannot start window watcher:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print("Watching active Windows window")
+    console.print("Press Ctrl+C to stop")
+    core.scheduler.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("[yellow]Stopping window watcher...[/yellow]")
     finally:
         watcher.stop()
         core.scheduler.stop()
