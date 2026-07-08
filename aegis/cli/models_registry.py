@@ -20,6 +20,14 @@ def seed_registry():
     console.print_json(data={"added": added})
 
 
+@app.command("update-defaults")
+def update_defaults():
+    """Add missing defaults and update existing default model records."""
+    registry = ModelRegistry()
+    result = registry.update_defaults()
+    console.print_json(data=result)
+
+
 @app.command("list")
 def list_models(
     task: str | None = typer.Option(None, "--task", help="Filter by task type"),

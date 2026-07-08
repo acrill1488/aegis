@@ -46,6 +46,7 @@ from .windows import app as windows_app
 from .scheduler import app as scheduler_app
 from .distributed import app as distributed_app
 from .models_registry import app as models_registry_app
+from .model_runtime import app as model_runtime_app
 
 app = typer.Typer()
 console = Console()
@@ -73,6 +74,7 @@ app.add_typer(windows_app, name="windows", help="Windows Agent commands")
 app.add_typer(scheduler_app, name="scheduler", help="Scheduler commands")
 app.add_typer(distributed_app, name="distributed", help="Distributed runtime commands")
 app.add_typer(models_registry_app, name="model-registry", help="Model Registry commands")
+app.add_typer(model_runtime_app, name="model-runtime", help="Model Runtime commands")
 
 @app.command("execute")
 def execute_command(

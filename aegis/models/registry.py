@@ -65,14 +65,79 @@ class ModelRegistry:
 
     def seed_defaults(self) -> int:
         added = 0
+        changed = False
         for record in _default_models():
             if record.id in self._models:
+                changed = (
+                    self._migrate_default_record(self._models[record.id], record)
+                    or changed
+                )
                 continue
             self._models[record.id] = record
             added += 1
-        if added:
+        if added or changed:
             self._save()
         return added
+
+    def update_defaults(self) -> dict[str, int]:
+        added = 0
+        updated = 0
+        for default in _default_models():
+            existing = self._models.get(default.id)
+            if existing is None:
+                self._models[default.id] = default
+                added += 1
+                continue
+            if self._update_default_record(existing, default):
+                updated += 1
+        if added or updated:
+            self._save()
+        return {"added": added, "updated": updated}
+
+    def _update_default_record(
+        self,
+        existing: ModelRecord,
+        default: ModelRecord,
+    ) -> bool:
+        changed = False
+        fields = (
+            "name",
+            "provider",
+            "model_ref",
+            "task_types",
+            "context_window",
+            "input_modalities",
+            "output_modalities",
+            "quantization",
+            "ram_required_gb",
+            "vram_required_gb",
+            "quality_tier",
+            "speed_tier",
+            "license",
+        )
+        for field_name in fields:
+            default_value = getattr(default, field_name)
+            if getattr(existing, field_name) != default_value:
+                setattr(existing, field_name, default_value)
+                changed = True
+        return changed
+
+    def _migrate_default_record(
+        self,
+        existing: ModelRecord,
+        default: ModelRecord,
+    ) -> bool:
+        changed = False
+        if existing.provider == "local" and default.provider == "ollama":
+            existing.provider = default.provider
+            changed = True
+        if existing.model_ref == "qwen3-coder" and default.model_ref == "qwen3-coder:latest":
+            existing.model_ref = default.model_ref
+            changed = True
+        if existing.id == "qwen3-local" and existing.model_ref == "qwen3":
+            existing.model_ref = default.model_ref
+            changed = True
+        return changed
 
     def _require_model(self, model_id: str) -> ModelRecord:
         record = self.get(model_id)
@@ -176,8 +241,8 @@ def _default_models() -> list[ModelRecord]:
         ModelRecord(
             id="qwen3-local",
             name="Qwen3 Local",
-            provider="local",
-            model_ref="qwen3",
+            provider="ollama",
+            model_ref="hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M",
             task_types=["general", "research", "planning"],
             input_modalities=["text"],
             output_modalities=["text"],
@@ -187,8 +252,8 @@ def _default_models() -> list[ModelRecord]:
         ModelRecord(
             id="qwen3-coder",
             name="Qwen3 Coder",
-            provider="local",
-            model_ref="qwen3-coder",
+            provider="ollama",
+            model_ref="qwen3-coder:latest",
             task_types=["coding"],
             input_modalities=["text"],
             output_modalities=["text"],
@@ -198,7 +263,7 @@ def _default_models() -> list[ModelRecord]:
         ModelRecord(
             id="qwopus-coder",
             name="Qwopus Coder",
-            provider="local",
+            provider="ollama",
             model_ref="Jackrong/Qwopus3.6-35B-A3B-Coder-MTP-GGUF",
             task_types=["coding"],
             input_modalities=["text"],

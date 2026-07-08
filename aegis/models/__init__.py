@@ -2,5 +2,14 @@
 
 from .models import ModelRecord
 from .registry import ModelRegistry
+from .requests import ModelRequest
+from .results import InferenceResult
+from .runtime import ModelRuntime
 
-__all__ = ["ModelRecord", "ModelRegistry"]
+__all__ = [
+    "InferenceResult",
+    "ModelRecord",
+    "ModelRegistry",
+    "ModelRequest",
+    "ModelRuntime",
+]
