@@ -1,4 +1,5 @@
 import os
+import platform
 from pathlib import Path
 from aegis.runtime.manager import RuntimeManager
 from aegis.workspace.manager import WorkspaceManager
@@ -27,6 +28,10 @@ class AegisCore:
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)
         self.agent_runtime.register(EchoAgent())
+        if platform.system().lower() == "windows":
+            from aegis.agents.windows import WindowsAgent
+
+            self.agent_runtime.register(WindowsAgent(self))
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
         self.system = SystemAPI()
