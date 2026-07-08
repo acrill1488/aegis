@@ -9,3 +9,5 @@ mss
 pillow
 GitPython
 psutil
+fastapi
+uvicorn
