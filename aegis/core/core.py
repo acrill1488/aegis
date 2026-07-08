@@ -12,6 +12,7 @@ from aegis.executor.executor import ExecutionEngine
 from aegis.router.capability import CapabilityRouter
 from aegis.events import EventBus
 from aegis.memory.manager import MemoryManager
+from aegis.models import ModelRegistry
 from aegis.system import SystemAPI
 from aegis.live import ContextStore
 from aegis.agents.runtime import AgentRuntime, EchoAgent
@@ -33,6 +34,9 @@ class AegisCore:
         self.machine_registry = MachineRegistry()
         self.machine_registry.event_bus = self.events
         self.registry.register("machine_registry", self.machine_registry)
+        self.model_registry = ModelRegistry()
+        self.model_registry.seed_defaults()
+        self.registry.register("model_registry", self.model_registry)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)
         self.agent_runtime.register(EchoAgent())
