@@ -1,4 +1,6 @@
+import importlib.util
 import json
+import time
 from pathlib import Path
 
 import typer
@@ -7,9 +9,11 @@ from rich.json import JSON
 
 from aegis.core.core import AegisCore
 from aegis.live.models import ContextEntry, ContextSnapshot
+from aegis.live.watchers import WorkspaceWatcher
 
 app = typer.Typer()
 console = Console()
+DEFAULT_WORKSPACE_PATH = r"F:\AI_WORKSPACE"
 
 
 def _entry_to_dict(entry: ContextEntry) -> dict:
@@ -142,3 +146,68 @@ def prune_context():
     core = AegisCore()
     pruned = core.live_context.prune_expired()
     _print_json({"pruned": pruned})
+
+
+@app.command("watch-workspace")
+def watch_workspace(
+    path: str = typer.Option(DEFAULT_WORKSPACE_PATH, "--path"),
+):
+    """Watch workspace changes in the foreground."""
+    core = AegisCore()
+    watcher = WorkspaceWatcher(
+        core,
+        path=path,
+        on_event=lambda message, _: console.print(message),
+    )
+
+    try:
+        watcher.start()
+    except (FileNotFoundError, NotADirectoryError, RuntimeError) as exc:
+        console.print(f"[red]Cannot start workspace watcher:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print(f"Watching workspace: {watcher.path}")
+    console.print("Press Ctrl+C to stop")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("[yellow]Stopping workspace watcher...[/yellow]")
+    finally:
+        watcher.stop()
+
+
+@app.command("workspace-status")
+def workspace_status(
+    path: str = typer.Option(DEFAULT_WORKSPACE_PATH, "--path"),
+):
+    """Show workspace watcher context status."""
+    core = AegisCore()
+    root = core.live_context.get("workspace.root")
+    last_event = core.live_context.get("workspace.last_event")
+    watcher = WorkspaceWatcher(core, path=path)
+    watched_path = Path(path)
+    event_file = Path(getattr(core.events, "_history_file"))
+    context_file = Path(core.live_context.path)
+
+    data = watcher.status()
+    data["status_note"] = (
+        "running=false only means this CLI command did not start a watcher; "
+        "foreground watcher may be running in another process."
+    )
+    data["checks"] = {
+        "exists": watched_path.exists(),
+        "is_dir": watched_path.is_dir(),
+        "watchdog_installed": importlib.util.find_spec("watchdog") is not None,
+        "event_file_path": str(event_file),
+        "event_file_exists": event_file.exists(),
+        "context_file_path": str(context_file),
+        "context_file_exists": context_file.exists(),
+    }
+    data["context"] = {
+        "workspace.root": _entry_to_dict(root) if root is not None else None,
+        "workspace.last_event": (
+            _entry_to_dict(last_event) if last_event is not None else None
+        ),
+    }
+    _print_json(data)
