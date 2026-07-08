@@ -11,6 +11,7 @@ from aegis.router.capability import CapabilityRouter
 from aegis.events import EventBus
 from aegis.memory.manager import MemoryManager
 from aegis.system import SystemAPI
+from aegis.live import ContextStore
 
 class AegisCore:
     def __init__(self):
@@ -23,6 +24,7 @@ class AegisCore:
         self.events = EventBus()
         self.registry.register("events", self.events)
         self.memory = MemoryManager(event_bus=self.events)
+        self.live_context = ContextStore()
         self.system = SystemAPI()
         
         # Register tools
@@ -54,6 +56,9 @@ class AegisCore:
         
         # Register memory
         self.registry.register("memory", self.memory)
+
+        # Register current live context
+        self.registry.register("live_context", self.live_context)
 
         # Register system status API
         self.registry.register("system", self.system)

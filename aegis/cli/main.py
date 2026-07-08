@@ -40,6 +40,7 @@ from .retriever import app as retriever_app
 from .system import app as system_app
 from .events import app as events_app
 from .daemon import app as daemon_app
+from .live import app as live_app
 
 app = typer.Typer()
 console = Console()
@@ -61,6 +62,7 @@ app.add_typer(skills_app, name="skills", help="Skill Framework commands")
 app.add_typer(system_app, name="system", help="System status commands")
 app.add_typer(events_app, name="events", help="Event bus commands")
 app.add_typer(daemon_app, name="daemon", help="AEGIS daemon commands")
+app.add_typer(live_app, name="live", help="Live context commands")
 
 @app.command("execute")
 def execute_command(
