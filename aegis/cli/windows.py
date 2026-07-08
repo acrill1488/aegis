@@ -70,6 +70,7 @@ def watch_processes(
 
     console.print("Watching Windows processes")
     console.print("Press Ctrl+C to stop")
+    core.scheduler.start()
     try:
         while True:
             time.sleep(1)
@@ -77,6 +78,7 @@ def watch_processes(
         console.print("[yellow]Stopping process watcher...[/yellow]")
     finally:
         watcher.stop()
+        core.scheduler.stop()
 
 
 def _invoke(capability_id: str):

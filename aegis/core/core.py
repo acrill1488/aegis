@@ -2,6 +2,7 @@ import os
 import platform
 from pathlib import Path
 from aegis.runtime.manager import RuntimeManager
+from aegis.runtime.scheduler import Scheduler
 from aegis.workspace.manager import WorkspaceManager
 from aegis.task.manager import TaskManager
 from aegis.tools.registry import ToolRegistry
@@ -18,12 +19,14 @@ from aegis.agents.runtime import AgentRuntime, EchoAgent
 class AegisCore:
     def __init__(self):
         self.runtime = RuntimeManager()
+        self.scheduler = Scheduler()
         self.workspace = WorkspaceManager()
         self.tasks = TaskManager()
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
         self.router = CapabilityRouter()
         self.events = EventBus()
+        self.registry.register("scheduler", self.scheduler)
         self.registry.register("events", self.events)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)

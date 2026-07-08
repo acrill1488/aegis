@@ -1,4 +1,3 @@
-import threading
 from datetime import datetime
 from typing import Callable
 
@@ -9,6 +8,7 @@ except ImportError:  # pragma: no cover - exercised only in incomplete environme
 
 
 ProcessEventCallback = Callable[[str, dict], None]
+PROCESS_WATCHER_TASK_NAME = "process-watcher"
 
 
 class ProcessWatcher:
@@ -25,8 +25,7 @@ class ProcessWatcher:
         self.core = core
         self.interval_seconds = interval_seconds
         self.on_event = on_event
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
+        self._task_name = PROCESS_WATCHER_TASK_NAME
         self._previous: dict[tuple[int, str], dict] = {}
         self._running = False
         self._last_event: dict | None = None
@@ -38,27 +37,24 @@ class ProcessWatcher:
             return self.status()
 
         self._previous = self._snapshot()
-        self._set_running_context(self._previous)
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run,
-            name="aegis-process-watcher",
-            daemon=True,
+        self.core.scheduler.register_periodic(
+            self._task_name,
+            self.tick,
+            self.interval_seconds,
+            replace=True,
         )
-        self._thread.start()
         self._running = True
         self._error = None
         return self.status()
 
     def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=max(float(self.interval_seconds), 1.0) + 1.0)
-            self._thread = None
+        self.core.scheduler.unregister(self._task_name)
         self._running = False
 
     def status(self) -> dict:
-        thread_alive = bool(self._thread is not None and self._thread.is_alive())
+        scheduler_status = self.core.scheduler.status()
+        task = self.core.scheduler.registry.get(self._task_name)
+        thread_alive = bool(scheduler_status["thread_alive"] and task is not None)
         return {
             "watcher": "process",
             "running": self._running,
@@ -67,18 +63,20 @@ class ProcessWatcher:
             "process_count": len(self._previous),
             "last_event": self._last_event,
             "error": self._error,
+            "scheduler_task": self._task_name if task is not None else None,
         }
 
-    def _run(self) -> None:
-        while not self._stop_event.wait(float(self.interval_seconds)):
-            try:
-                current = self._snapshot()
-                self._publish_changes(current)
-                self._set_running_context(current)
-                self._previous = current
-                self._error = None
-            except Exception as exc:  # pragma: no cover - defensive boundary
-                self._error = str(exc)
+    def tick(self) -> None:
+        """Run one process check iteration."""
+        try:
+            current = self._snapshot()
+            self._publish_changes(current)
+            self._set_running_context(current)
+            self._previous = current
+            self._error = None
+        except Exception as exc:
+            self._error = str(exc)
+            raise
 
     def _snapshot(self) -> dict[tuple[int, str], dict]:
         _require_psutil()

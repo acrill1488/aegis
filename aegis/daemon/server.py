@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from aegis.agents.windows import ProcessWatcher
 from aegis.core.core import AegisCore
 
 
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     """Create the daemon app and keep one AegisCore instance in memory."""
     app = FastAPI(title="AEGIS Daemon", version=_version())
     app.state.core = AegisCore()
+    _start_default_scheduler_tasks(app.state.core)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -41,6 +43,7 @@ def create_app() -> FastAPI:
             "skills": [_skill_status(skill) for skill in core.skills.list()],
             "tools": core.tools.status(),
             "events": {"count": len(core.events.history(limit=1_000_000))},
+            "scheduler": core.scheduler.status(),
         }
 
     @app.post("/ask")
@@ -69,6 +72,11 @@ def create_app() -> FastAPI:
 
 def _core(app: FastAPI) -> AegisCore:
     return app.state.core
+
+
+def _start_default_scheduler_tasks(core: AegisCore) -> None:
+    ProcessWatcher(core).start()
+    core.scheduler.start()
 
 
 def _serialize(value: Any) -> Any:

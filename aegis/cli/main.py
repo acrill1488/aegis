@@ -43,6 +43,7 @@ from .daemon import app as daemon_app
 from .live import app as live_app
 from .agents import app as agents_app
 from .windows import app as windows_app
+from .scheduler import app as scheduler_app
 
 app = typer.Typer()
 console = Console()
@@ -67,6 +68,7 @@ app.add_typer(daemon_app, name="daemon", help="AEGIS daemon commands")
 app.add_typer(live_app, name="live", help="Live context commands")
 app.add_typer(agents_app, name="agents", help="Agent runtime commands")
 app.add_typer(windows_app, name="windows", help="Windows Agent commands")
+app.add_typer(scheduler_app, name="scheduler", help="Scheduler commands")
 
 @app.command("execute")
 def execute_command(
