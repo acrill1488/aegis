@@ -4,6 +4,7 @@ from .models import ModelRecord
 from .registry import ModelRegistry
 from .requests import ModelRequest
 from .results import InferenceResult
+from .router import ModelRouter
 from .runtime import ModelRuntime
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "ModelRecord",
     "ModelRegistry",
     "ModelRequest",
+    "ModelRouter",
     "ModelRuntime",
 ]

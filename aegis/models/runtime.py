@@ -5,6 +5,7 @@ from aegis.models.providers.base import BaseInferenceProvider
 from aegis.models.registry import ModelRegistry
 from aegis.models.requests import ModelRequest
 from aegis.models.results import InferenceResult
+from aegis.models.router import ModelRouter
 
 
 class ModelRuntime:
@@ -15,13 +16,22 @@ class ModelRuntime:
     ):
         self.model_registry = model_registry
         self.providers = providers
+        self.router = ModelRouter(
+            model_registry=self.model_registry,
+            providers=self.providers,
+        )
 
-    def route(self, task_type: str) -> ModelRecord | None:
-        records = self.model_registry.list(task_type=task_type, enabled_only=True)
-        return records[0] if records else None
+    def route(
+        self,
+        request: ModelRequest | str,
+        constraints: dict | None = None,
+    ) -> ModelRecord | None:
+        if isinstance(request, ModelRequest):
+            return self.router.select(request.task_type, request.constraints)
+        return self.router.select(request, constraints)
 
     def generate(self, request: ModelRequest) -> InferenceResult:
-        model = self.route(request.task_type)
+        model = self.router.select(request.task_type, request.constraints)
         if model is None:
             return InferenceResult(
                 success=False,
