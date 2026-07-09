@@ -100,6 +100,28 @@ def list_plans(json_output: bool = typer.Option(False, "--json")):
     console.print(table)
 
 
+@app.command("execute")
+def execute_plan(plan_id: str = typer.Argument(..., metavar="PLAN_ID")):
+    """Execute a Task Planning Runtime plan sequentially."""
+    runtime = AegisCore().task_planning_runtime
+    try:
+        execution = runtime.execute_plan(plan_id)
+    except (KeyError, RuntimeError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print_json(data=to_plain(execution))
+
+
+@app.command("execution")
+def show_execution(plan_id: str = typer.Argument(..., metavar="PLAN_ID")):
+    """Show the latest execution for a Task Planning Runtime plan."""
+    execution = AegisCore().task_planning_runtime.get_plan_execution(plan_id)
+    if execution is None:
+        console.print(f"[red]Execution not found for plan: {plan_id}[/red]")
+        raise typer.Exit(code=1)
+    console.print_json(data=to_plain(execution))
+
+
 @app.command("show-task")
 def show_task(task_id: str = typer.Argument(..., metavar="TASK_ID")):
     """Show one Task Planning Runtime task."""

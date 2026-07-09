@@ -1,14 +1,51 @@
 from aegis.planning import TaskPlanningRuntime
+from aegis.planning.models import ExecutionGraph, Plan, PlanStep
 
 
 class FakeCapabilityRuntime:
     def __init__(self, existing):
         self.existing = set(existing)
+        self.invocations = []
+        self.results = {}
+        self.core = None
 
     def resolve(self, capability_id):
         if capability_id in self.existing:
             return {"capability_id": capability_id}
         return None
+
+    def invoke(self, request):
+        from aegis.capabilities import CapabilityInvocationResult
+
+        self.invocations.append(request)
+        result = self.results.get(request.capability_id)
+        if result is not None:
+            return result
+        return CapabilityInvocationResult(
+            success=True,
+            capability_id=request.capability_id,
+            output={"capability_id": request.capability_id},
+        )
+
+
+class FakeEventBus:
+    def __init__(self):
+        self.events = []
+
+    def publish(self, event_type, source, payload=None, trace_id=None):
+        self.events.append(
+            {
+                "type": event_type,
+                "source": source,
+                "payload": payload or {},
+                "trace_id": trace_id,
+            }
+        )
+
+
+class FakeCore:
+    def __init__(self, events):
+        self.events = events
 
 
 def test_create_task_and_default_plan_persist(tmp_path):
@@ -105,3 +142,81 @@ def test_create_plan_builds_research_graph_and_marks_missing_capability(tmp_path
     assert plan.graph.edges == [["step_context", "step_research_placeholder"]]
     assert plan.graph.nodes[0].metadata == {"missing_capability": True}
     assert plan.graph.nodes[1].metadata == {}
+
+
+def test_execute_plan_runs_ready_steps_in_dependency_order(tmp_path):
+    event_bus = FakeEventBus()
+    capability_runtime = FakeCapabilityRuntime({"echo"})
+    capability_runtime.core = FakeCore(event_bus)
+    runtime = TaskPlanningRuntime(tmp_path, capability_runtime=capability_runtime)
+    task = runtime.create_task("Prepare a brief", task_id="task_execute")
+    plan = runtime.create_plan(task.id, plan_id="plan_execute")
+
+    execution = runtime.execute_plan(plan.id)
+
+    assert execution.status == "completed"
+    assert runtime.get_plan(plan.id).status == "completed"
+    assert [request.capability_id for request in capability_runtime.invocations] == ["echo"]
+    assert capability_runtime.invocations[0].caller == "planning.executor"
+    assert execution.step_states["step_echo"].status == "completed"
+    assert execution.step_states["step_echo"].input_snapshot == {
+        "message": "Prepare a brief"
+    }
+    assert [event["type"] for event in event_bus.events] == [
+        "planning.started",
+        "planning.step.started",
+        "planning.step.completed",
+        "planning.completed",
+    ]
+
+    reloaded = TaskPlanningRuntime(tmp_path, capability_runtime=capability_runtime)
+    reloaded_execution = reloaded.get_plan_execution(plan.id)
+    assert reloaded_execution is not None
+    assert reloaded_execution.status == "completed"
+    assert reloaded_execution.step_states["step_echo"].status == "completed"
+
+
+def test_execute_plan_stops_on_failed_step(tmp_path):
+    from aegis.capabilities import CapabilityInvocationResult
+
+    capability_runtime = FakeCapabilityRuntime({"ok", "fail", "blocked"})
+    capability_runtime.results["fail"] = CapabilityInvocationResult(
+        success=False,
+        capability_id="fail",
+        error="boom",
+    )
+    runtime = TaskPlanningRuntime(tmp_path, capability_runtime=capability_runtime)
+    task = runtime.create_task("manual", task_id="task_failed")
+    plan = Plan(
+        id="plan_failed",
+        task_id=task.id,
+        graph=ExecutionGraph(
+            nodes=[
+                PlanStep(id="step_ok", capability_id="ok"),
+                PlanStep(
+                    id="step_fail",
+                    capability_id="fail",
+                    dependencies=["step_ok"],
+                ),
+                PlanStep(
+                    id="step_blocked",
+                    capability_id="blocked",
+                    dependencies=["step_fail"],
+                ),
+            ],
+        ),
+    )
+    runtime._plans[plan.id] = plan
+    runtime._save_plans()
+
+    execution = runtime.execute_plan(plan.id)
+
+    assert execution.status == "failed"
+    assert runtime.get_plan(plan.id).status == "failed"
+    assert [request.capability_id for request in capability_runtime.invocations] == [
+        "ok",
+        "fail",
+    ]
+    assert execution.step_states["step_ok"].status == "completed"
+    assert execution.step_states["step_fail"].status == "failed"
+    assert "step_blocked" not in execution.step_states

@@ -8,6 +8,7 @@ from .models import (
     StepExecutionState,
     Task,
 )
+from .executor import PlanExecutor
 from .plan_builder import PlanBuilder
 from .runtime import TaskPlanningRuntime
 
@@ -15,6 +16,7 @@ __all__ = [
     "ExecutionGraph",
     "Plan",
     "PlanExecution",
+    "PlanExecutor",
     "PlanBuilder",
     "PlanStep",
     "StepExecutionState",

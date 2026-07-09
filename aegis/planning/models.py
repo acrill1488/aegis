@@ -50,9 +50,11 @@ class StepExecutionState:
     attempt: int = 0
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    input_snapshot: dict[str, Any] = field(default_factory=dict)
     output: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     validation: dict[str, Any] = field(default_factory=dict)
+    next_retry_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
