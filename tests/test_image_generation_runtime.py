@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from aegis.capabilities import CapabilityInvocationRequest, CapabilityRuntime
 from aegis.image_generation import ImageGenerationRuntime
+from aegis.image_generation.models import ImageGenerationRequest
+from aegis.image_generation.providers.comfyui import ComfyUIProvider
 from aegis.project_runtime import ProjectRegistry, ProjectRuntime
 
 
@@ -43,7 +46,11 @@ class _Registry:
 def test_stub_provider_generates_placeholder_png_and_events(tmp_path):
     runtime = ImageGenerationRuntime(FakeCore(tmp_path))
 
-    result = runtime.generate("a quiet workstation", output_dir=str(tmp_path / "images"))
+    result = runtime.generate(
+        "a quiet workstation",
+        output_dir=str(tmp_path / "images"),
+        provider="stub",
+    )
 
     assert result.success is True
     assert result.provider == "stub"
@@ -62,7 +69,12 @@ def test_generation_registers_active_project_artifact(tmp_path):
     core.project_runtime.set_active(project.id)
     runtime = core.image_generation
 
-    result = runtime.generate("project image", output_dir=str(tmp_path / "images"), seed=7)
+    result = runtime.generate(
+        "project image",
+        output_dir=str(tmp_path / "images"),
+        seed=7,
+        provider="stub",
+    )
 
     artifacts = core.project_runtime.artifacts(project.id)
     assert result.success is True
@@ -84,10 +96,48 @@ def test_image_generation_registers_capabilities_and_invokes_runtime(tmp_path):
     result = core.capability_runtime.invoke(
         CapabilityInvocationRequest(
             capability_id="image.generate",
-            payload={"prompt": "capability image", "output_dir": str(tmp_path / "images")},
+            payload={
+                "prompt": "capability image",
+                "output_dir": str(tmp_path / "images"),
+                "provider": "stub",
+            },
         )
     )
 
     assert result.success is True
     assert result.output["success"] is True
     assert Path(result.output["image_paths"][0]).exists()
+
+
+def test_runtime_lists_stub_and_comfyui_providers(tmp_path):
+    runtime = ImageGenerationRuntime(FakeCore(tmp_path))
+
+    providers = {provider["name"]: provider for provider in runtime.providers()}
+
+    assert "stub" in providers
+    assert "comfyui" in providers
+    assert providers["stub"]["available"] is True
+    assert providers["comfyui"]["capabilities"]["mode"] == "comfyui"
+
+
+def test_comfyui_provider_reports_missing_workflow(tmp_path):
+    config_path = tmp_path / "comfyui.json"
+    workflow_path = tmp_path / "missing.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "base_url": "http://127.0.0.1:8188",
+                "workflow_path": str(workflow_path),
+                "output_dir": str(tmp_path / "images"),
+                "timeout_seconds": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    provider = ComfyUIProvider(config_path=config_path)
+
+    result = provider.generate(ImageGenerationRequest(prompt="test prompt"))
+
+    assert result.success is False
+    assert result.provider == "comfyui"
+    assert result.error == "ComfyUI workflow not found"

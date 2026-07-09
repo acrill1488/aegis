@@ -8,6 +8,7 @@ from aegis.capabilities import CapabilityDescriptor
 from aegis.serialization import to_plain
 
 from .models import ImageGenerationRequest, ImageGenerationResult
+from .providers.comfyui import ComfyUIProvider
 from .providers.stub import StubImageGenerationProvider
 
 
@@ -16,8 +17,11 @@ class ImageGenerationRuntime:
 
     def __init__(self, core: Any):
         self.core = core
-        self._providers = {"stub": StubImageGenerationProvider()}
-        self._default_provider = "stub"
+        self._providers = {
+            "stub": StubImageGenerationProvider(),
+            "comfyui": ComfyUIProvider(event_publisher=self._publish),
+        }
+        self._default_provider = self._select_default_provider()
 
     def generate(
         self,
@@ -63,7 +67,10 @@ class ImageGenerationRuntime:
         )
         try:
             if not image_provider.available():
-                raise RuntimeError(f"Image generation provider unavailable: {provider_name}")
+                self._publish(
+                    "image.provider.unavailable",
+                    {"provider": provider_name, "request": request},
+                )
             result = image_provider.generate(request)
             result.metadata = {
                 **result.metadata,
@@ -95,6 +102,12 @@ class ImageGenerationRuntime:
 
     def default_provider(self) -> str:
         return self._default_provider
+
+    def _select_default_provider(self) -> str:
+        comfyui = self._providers.get("comfyui")
+        if comfyui is not None and comfyui.available():
+            return "comfyui"
+        return "stub"
 
     def register_capabilities(self) -> None:
         capability_runtime = getattr(self.core, "capability_runtime", None)
