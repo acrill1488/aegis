@@ -32,6 +32,7 @@ from aegis.mission_engine import MissionRuntime
 from aegis.project_runtime import ProjectRuntime
 from aegis.recovery_engine import RecoveryEngineRuntime
 from aegis.operational_memory import OperationalMemoryRuntime
+from aegis.planner import AdaptivePlannerRuntime
 from aegis.reflection_engine import ReflectionEngineRuntime
 
 class AegisCore:
@@ -93,10 +94,13 @@ class AegisCore:
         self.registry.register("mission_runtime", self.mission_runtime)
         self.reflection_engine = ReflectionEngineRuntime(self)
         self.registry.register("reflection_engine", self.reflection_engine)
+        self.adaptive_planner = AdaptivePlannerRuntime(self)
+        self.registry.register("adaptive_planner", self.adaptive_planner)
         self.goal_engine = GoalEngineRuntime(
             self,
             skill_engine=self.skill_engine,
             mission_runtime=self.mission_runtime,
+            adaptive_planner=self.adaptive_planner,
         )
         self.registry.register("goal_engine", self.goal_engine)
         self.agent_runtime.register(EchoAgent())

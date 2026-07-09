@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from aegis.mission_engine import MissionRuntime
+from aegis.planner import AdaptivePlannerRuntime
 from aegis.skill_engine import SkillEngineRuntime
 
 from .matcher import RuleBasedSkillMatcher
@@ -19,6 +20,7 @@ class GoalEngineRuntime:
         skill_engine: SkillEngineRuntime | None = None,
         mission_runtime: MissionRuntime | None = None,
         matcher: RuleBasedSkillMatcher | None = None,
+        adaptive_planner: AdaptivePlannerRuntime | None = None,
     ):
         self.core = core
         self.skill_engine = skill_engine or getattr(core, "skill_engine", None)
@@ -28,9 +30,37 @@ class GoalEngineRuntime:
         if self.mission_runtime is None:
             self.mission_runtime = MissionRuntime(core, skill_engine=self.skill_engine)
         self.matcher = matcher or RuleBasedSkillMatcher(self.skill_engine.skills)
+        self.adaptive_planner = adaptive_planner or getattr(core, "adaptive_planner", None)
+        if self.adaptive_planner is None:
+            self.adaptive_planner = AdaptivePlannerRuntime(core)
 
     def parse(self, text: str) -> Goal:
-        return self.matcher.match(text)
+        plan = self.adaptive_planner.plan(text)
+        if plan.graph is None or not plan.graph.nodes:
+            return self.matcher.match(text)
+        first_step = plan.graph.nodes[0]
+        if first_step.skill_id == "planner.unresolved":
+            goal = self.matcher.match(text)
+            goal.metadata["planner_plan_id"] = plan.id
+            return goal
+        inputs = first_step.metadata.get("inputs")
+        if not isinstance(inputs, dict):
+            inputs = {"goal": text}
+        available = self.skill_engine.skills.get(first_step.skill_id) is not None
+        return Goal(
+            id=plan.id.replace("plan_", "goal_", 1),
+            text=text.strip(),
+            intent=str(first_step.metadata.get("heuristic") or "planned"),
+            confidence=first_step.confidence,
+            selected_skill=first_step.skill_id,
+            inputs=inputs,
+            metadata={
+                "status": "matched" if available else "not_available",
+                "skill_available": available,
+                "planner_plan_id": plan.id,
+                "planner": "adaptive_v1",
+            },
+        )
 
     def execute(self, text: str) -> dict[str, Any]:
         goal = self.parse(text)
