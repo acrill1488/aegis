@@ -11,6 +11,7 @@ from aegis.core.registry import ServiceRegistry
 from aegis.executor.executor import ExecutionEngine
 from aegis.router.capability import CapabilityRouter
 from aegis.events import EventBus
+from aegis.event_platform import EventPlatformRuntime
 from aegis.memory.manager import MemoryManager
 from aegis.models import ModelRegistry, ModelRuntime
 from aegis.models.providers import OllamaProvider
@@ -42,9 +43,11 @@ class AegisCore:
         self.tools = ToolRegistry()
         self.registry = ServiceRegistry()
         self.router = CapabilityRouter()
-        self.events = EventBus()
+        self.event_platform = EventPlatformRuntime(self)
+        self.events = EventBus(platform=self.event_platform)
         self.registry.register("scheduler", self.scheduler)
         self.registry.register("watcher_registry", self.scheduler.watcher_registry)
+        self.registry.register("event_platform", self.event_platform)
         self.registry.register("events", self.events)
         self.machine_registry = MachineRegistry()
         self.machine_registry.event_bus = self.events
@@ -174,9 +177,9 @@ class AegisCore:
         self.web = WebBrowser(self)
         self.registry.register("web", self.web)
 
-        # Initialize knowledge engine
-        from aegis.knowledge.engine import KnowledgeEngine
-        self.knowledge = KnowledgeEngine(self)
+        # Initialize local knowledge platform
+        from aegis.knowledge.runtime import KnowledgeRuntime
+        self.knowledge = KnowledgeRuntime(self)
         self.registry.register("knowledge", self.knowledge)
 
         # Initialize context builder

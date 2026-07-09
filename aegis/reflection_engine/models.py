@@ -27,6 +27,7 @@ class ReflectionRecommendation:
     reason: str = ""
     confidence: float = 0.3
     status: str = "open"
+    knowledge_evidence_document_id: str | None = None
     created_at: datetime = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -40,9 +41,25 @@ class ReflectionRecommendation:
             reason=str(item.get("reason") or ""),
             confidence=float(item.get("confidence", 0.3)),
             status=str(item.get("status") or "open"),
+            knowledge_evidence_document_id=(
+                str(item.get("knowledge_evidence_document_id"))
+                if item.get("knowledge_evidence_document_id") is not None
+                else _metadata_evidence_document_id(item.get("metadata"))
+            ),
             created_at=parse_datetime(item.get("created_at")),
             metadata=dict(item.get("metadata") or {}),
         )
+
+
+def _metadata_evidence_document_id(metadata: Any) -> str | None:
+    if not isinstance(metadata, dict):
+        return None
+    evidence = metadata.get("knowledge_evidence")
+    if isinstance(evidence, dict) and evidence.get("document_id") is not None:
+        return str(evidence["document_id"])
+    if metadata.get("knowledge_evidence_document_id") is not None:
+        return str(metadata["knowledge_evidence_document_id"])
+    return None
 
 
 @dataclass

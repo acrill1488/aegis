@@ -61,6 +61,13 @@ class RecoveryEngineRuntime:
     ) -> RecoveryDecision:
         context = self._context(context)
         started_at = self._now()
+        self._publish_event(
+            "recovery.started",
+            str(context.get("source") or action),
+            payload={"action": action, "error": str(error)},
+            severity="warning",
+            **self._event_context(context),
+        )
         decision = self.decide(action, payload, error, context)
         completed_at = self._now()
         self.record_attempt(
@@ -78,6 +85,18 @@ class RecoveryEngineRuntime:
             },
         )
         if not decision.should_retry:
+            self._publish_event(
+                "recovery.failed",
+                str(context.get("source") or action),
+                payload={
+                    "action": action,
+                    "error": str(error),
+                    "strategy": decision.strategy,
+                    "reason": decision.reason,
+                },
+                severity="error",
+                **self._event_context(context),
+            )
             self._record_operational_recovery(
                 type="recovery.failure",
                 source=action,
@@ -87,6 +106,18 @@ class RecoveryEngineRuntime:
                 decision=decision,
                 metadata={"stage": "decision"},
             )
+            return decision
+        self._publish_event(
+            "recovery.completed",
+            str(context.get("source") or action),
+            payload={
+                "action": action,
+                "strategy": decision.strategy,
+                "reason": decision.reason,
+                "should_retry": decision.should_retry,
+            },
+            **self._event_context(context),
+        )
         return decision
 
     def record_attempt(
@@ -188,3 +219,37 @@ class RecoveryEngineRuntime:
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
+
+    def _publish_event(
+        self,
+        event_type: str,
+        source: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        severity: str = "info",
+        **context: Any,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(
+                event_type,
+                "recovery_engine",
+                payload or {},
+                severity=severity,
+                recovery_source=source,
+                **context,
+            )
+        except Exception:
+            return
+
+    def _event_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "project_id": context.get("project_id"),
+            "mission_id": context.get("mission_id"),
+            "skill_id": context.get("skill_id"),
+            "correlation_id": context.get("correlation_id"),
+            "metadata": dict(context.get("attempt_metadata") or {}),
+        }

@@ -44,6 +44,7 @@ class OperationalMemoryRuntime:
         self._experiences.append(record)
         self.store.save(self._experiences)
         self._add_to_index(record)
+        self._publish_recorded(record)
         return record
 
     def list(
@@ -158,3 +159,28 @@ class OperationalMemoryRuntime:
 
     def _add_to_index(self, record: OperationalExperience) -> None:
         self._index.setdefault(record.type, {}).setdefault(record.source, []).append(record)
+
+    def _publish_recorded(self, record: OperationalExperience) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        metadata = dict(record.metadata or {})
+        data = dict(record.data or {})
+        try:
+            publish(
+                "memory.recorded",
+                "operational_memory",
+                {
+                    "experience_id": record.id,
+                    "type": record.type,
+                    "source": record.source,
+                    "summary": record.summary,
+                },
+                project_id=metadata.get("project_id") or data.get("project_id"),
+                mission_id=metadata.get("mission_id") or data.get("mission_id"),
+                skill_id=metadata.get("skill_id") or data.get("skill_id"),
+                correlation_id=metadata.get("correlation_id") or data.get("correlation_id"),
+            )
+        except Exception:
+            return

@@ -291,15 +291,17 @@ def ask(
     core = AegisCore()
     execution = core.goal_engine.execute(prompt)
     goal = execution["goal"]
+    mission = execution.get("mission")
     console.print(f"[bold]Goal:[/bold] {goal.text}")
-    console.print(f"[bold]Capability:[/bold] {capability}")
-    console.print(f"[bold]Role:[/bold] {role}")
+    if mission is not None:
+        console.print(f"[bold]Mission:[/bold] {mission.id}")
     console.print(f"[bold]Skill:[/bold] {goal.selected_skill or 'unresolved'}")
     console.print(f"[bold]Inputs:[/bold] {to_plain(goal.inputs)}")
     if not execution["success"] and execution["result"] is None:
         console.print(f"[red]{execution['error']}[/red]")
         raise typer.Exit(code=1)
-    console.print(to_plain(execution["result"]))
+    console.print("[bold]Result:[/bold]")
+    console.print_json(data=to_plain(execution["result"]))
     if not execution["success"]:
         raise typer.Exit(code=1)
 

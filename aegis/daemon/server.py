@@ -40,7 +40,9 @@ def create_app() -> FastAPI:
     """Create the daemon app and keep one AegisCore instance in memory."""
     app = FastAPI(title="AEGIS Daemon", version=_version())
     app.state.core = AegisCore()
+    _publish_daemon_event(app.state.core, "daemon.started", {"mode": "http"})
     _start_default_scheduler_tasks(app.state.core)
+    _publish_daemon_event(app.state.core, "daemon.ready", {"mode": "http"})
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -86,9 +88,11 @@ class DaemonRuntime:
 
     def __init__(self, *, headless_browser: bool = False):
         self.core = AegisCore()
+        _publish_daemon_event(self.core, "daemon.started", {"mode": "ipc"})
         self.browser_service = BrowserService(headless=headless_browser)
         self.core.service_runtime.register(self.browser_service)
         _start_default_scheduler_tasks(self.core)
+        _publish_daemon_event(self.core, "daemon.ready", {"mode": "ipc"})
 
     def handle_ipc(self, request: IPCRequest) -> Any:
         if request.target == "browser":
@@ -111,15 +115,27 @@ class DaemonRuntime:
         finally:
             try:
                 self.core.scheduler.stop()
+                _publish_daemon_event(self.core, "daemon.stopped", {"mode": "ipc"})
             except Exception:
-                return
+                _publish_daemon_event(
+                    self.core,
+                    "daemon.failed",
+                    {"mode": "ipc", "stage": "stop"},
+                    severity="error",
+                )
 
     def _handle_browser(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if action == "status":
             return self.browser_service.health()
         if action != "close" and self.browser_service.status != ServiceStatus.running:
             self.core.service_runtime.start(self.browser_service.id)
-        return self.browser_service.invoke(action, payload)
+        try:
+            result = self.browser_service.invoke(action, payload)
+        except Exception as exc:
+            self._publish_browser_event(action, payload, False, error=str(exc))
+            raise
+        self._publish_browser_event(action, payload, True, output=result)
+        return result
 
     def _handle_ui(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if self.browser_service.status != ServiceStatus.running:
@@ -157,6 +173,37 @@ class DaemonRuntime:
         if action not in {"list", "status"}:
             raise ValueError(f"Unsupported services action: {action}")
         return self.core.service_runtime.list()
+
+    def _publish_browser_event(
+        self,
+        action: str,
+        payload: dict[str, Any],
+        success: bool,
+        *,
+        output: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        event_type = "browser.opened" if action == "open" and success else (
+            "browser.action.completed" if success else "browser.action.failed"
+        )
+        try:
+            publish(
+                event_type,
+                "daemon.browser",
+                {
+                    "action": action,
+                    "payload": _serialize(payload),
+                    "output": _serialize(output) if output is not None else None,
+                    "error": error,
+                },
+                severity="info" if success else "error",
+            )
+        except Exception:
+            return
 
 
 def serve_ipc(
@@ -230,3 +277,20 @@ def _version() -> str:
         return metadata.version("aegis")
     except metadata.PackageNotFoundError:
         return "0.1.0"
+
+
+def _publish_daemon_event(
+    core: AegisCore,
+    event_type: str,
+    payload: dict[str, Any],
+    *,
+    severity: str = "info",
+) -> None:
+    event_platform = getattr(core, "event_platform", None)
+    publish = getattr(event_platform, "publish", None)
+    if not callable(publish):
+        return
+    try:
+        publish(event_type, "daemon", payload, severity=severity)
+    except Exception:
+        return

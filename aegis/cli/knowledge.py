@@ -5,9 +5,96 @@ from rich.console import Console
 from rich.table import Table
 
 from aegis.core.core import AegisCore
+from aegis.serialization import to_plain
 
 app = typer.Typer()
 console = Console()
+
+
+@app.command("add")
+def add(path: str = typer.Argument(..., metavar="PATH")):
+    """Add one supported document to the local knowledge index."""
+    core = AegisCore()
+    document = core.knowledge.add(path)
+    console.print_json(data=to_plain(document))
+
+
+@app.command("scan")
+def scan(path: str = typer.Argument(..., metavar="PATH")):
+    """Scan a file or directory into the local knowledge index."""
+    core = AegisCore()
+    documents = core.knowledge.scan(path)
+    console.print_json(data=to_plain(documents))
+
+
+@app.command("documents")
+def documents():
+    """List indexed knowledge documents."""
+    core = AegisCore()
+    table = Table(title="Knowledge Documents")
+    table.add_column("ID")
+    table.add_column("Type")
+    table.add_column("Title")
+    table.add_column("Path")
+    for document in core.knowledge.documents():
+        table.add_row(document.id, document.type, document.title, document.path)
+    console.print(table)
+
+
+@app.command("search")
+def search(query: str = typer.Argument(..., metavar="QUERY")):
+    """Search local knowledge chunks."""
+    core = AegisCore()
+    table = Table(title="Knowledge Search")
+    table.add_column("Score")
+    table.add_column("Document")
+    table.add_column("Chunk")
+    table.add_column("Preview")
+    for result in core.knowledge.search(query):
+        chunk = result["chunk"]
+        document = result["document"]
+        preview = " ".join(chunk.text.split())
+        if len(preview) > 140:
+            preview = preview[:137].rstrip() + "..."
+        table.add_row(
+            str(result["score"]),
+            document.title if document else chunk.document_id,
+            str(chunk.index),
+            preview,
+        )
+    console.print(table)
+
+
+@app.command("entities")
+def entities():
+    """List extracted knowledge entities."""
+    core = AegisCore()
+    table = Table(title="Knowledge Entities")
+    table.add_column("Type")
+    table.add_column("Name")
+    table.add_column("Document")
+    for entity in core.knowledge.entities():
+        table.add_row(entity.type, entity.name, entity.document_id)
+    console.print(table)
+
+
+@app.command("show")
+def show(document_id: str = typer.Argument(..., metavar="DOCUMENT_ID")):
+    """Show one indexed knowledge document with chunks and entities."""
+    core = AegisCore()
+    try:
+        value = core.knowledge.show(document_id)
+    except KeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+    console.print_json(data=to_plain(value))
+
+
+@app.command("stats")
+def stats():
+    """Show local knowledge index statistics."""
+    core = AegisCore()
+    console.print_json(data=to_plain(core.knowledge.stats()))
 
 
 @app.command("gather")
@@ -44,7 +131,7 @@ def gather(query: str = typer.Argument(...)):
 def context(query: str = typer.Argument(...)):
     """Build prompt-ready knowledge context for a query."""
     core = AegisCore()
-    knowledge_context = core.knowledge.build_context(query)
+    knowledge_context = core.knowledge.build_prompt_context(query)
     if not knowledge_context:
         console.print("[yellow]No knowledge context found.[/yellow]")
         return

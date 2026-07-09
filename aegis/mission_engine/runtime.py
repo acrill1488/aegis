@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from inspect import signature
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from aegis.goal_engine.models import Goal
 from aegis.serialization import to_plain
@@ -40,6 +42,7 @@ class MissionRuntime:
     ) -> Mission:
         metadata = dict(metadata or {})
         active_project = self._active_project()
+        metadata.setdefault("correlation_id", f"corr_{uuid4().hex}")
         if isinstance(goal, Goal):
             mission_id = self.planner._new_id()
             workspace = self._mission_workspace(mission_id, active_project)
@@ -67,6 +70,11 @@ class MissionRuntime:
         mission = self.registry.save(mission)
         if active_project is not None:
             self.core.project_runtime.add_mission(active_project.id, mission.id)
+        self._publish_event(
+            "mission.created",
+            mission,
+            payload={"goal": mission.goal, "priority": mission.priority},
+        )
         return mission
 
     def run(self, mission_or_id: Mission | str) -> MissionResult:
@@ -86,6 +94,11 @@ class MissionRuntime:
         mission.status = "running"
         mission.started_at = mission.started_at or self._now()
         self.registry.save(mission)
+        self._publish_event(
+            "mission.started",
+            mission,
+            payload={"node_count": len(mission.graph)},
+        )
 
         failed_node: str | None = None
         error: str | None = None
@@ -109,7 +122,7 @@ class MissionRuntime:
                 break
 
             for node in ready:
-                result = self._run_node(node)
+                result = self._run_node(node, mission)
                 self.registry.save(mission)
                 node_recovery = node.metadata.get("recovery")
                 if node_recovery:
@@ -148,6 +161,18 @@ class MissionRuntime:
             metadata={"recovery": recovery},
         )
         self._record_mission_experience(mission, result)
+        self._publish_event(
+            "mission.completed" if result.success else "mission.failed",
+            mission,
+            payload={
+                "success": result.success,
+                "failed_node": result.failed_node,
+                "error": result.error,
+                "completed_nodes": result.completed_nodes,
+                "report_path": result.report_path,
+            },
+            severity="info" if result.success else "error",
+        )
         return result
 
     def status(self, mission_id: str) -> dict[str, Any]:
@@ -177,17 +202,32 @@ class MissionRuntime:
     def list(self) -> list[Mission]:
         return self.registry.list()
 
-    def _run_node(self, node: MissionNode):
+    def _run_node(self, node: MissionNode, mission: Mission | None = None):
         node.status = "running"
         started_at = self._now()
+        if mission is not None:
+            self._publish_event(
+                "skill.node.started",
+                mission,
+                payload={"node_id": node.id, "skill_id": node.skill_id},
+                skill_id=node.skill_id,
+            )
         try:
-            result = self.skill_engine.run(node.skill_id, node.inputs)
+            result = self._run_skill_with_context(node, mission)
         except Exception as exc:
             node.status = "failed"
             node.outputs = {}
             node.metadata["error"] = str(exc)
             node.metadata["started_at"] = started_at
             node.metadata["completed_at"] = self._now()
+            if mission is not None:
+                self._publish_event(
+                    "skill.node.failed",
+                    mission,
+                    payload={"node_id": node.id, "skill_id": node.skill_id, "error": str(exc)},
+                    severity="error",
+                    skill_id=node.skill_id,
+                )
             return MissionResult(success=False, failed_node=node.id, error=str(exc))
 
         node.outputs = to_plain(getattr(result, "output", {}))
@@ -199,11 +239,26 @@ class MissionRuntime:
         node.metadata["completed_at"] = getattr(result, "completed_at", self._now())
         if getattr(result, "success", False):
             node.status = "completed"
+            if mission is not None:
+                self._publish_event(
+                    "skill.node.completed",
+                    mission,
+                    payload={"node_id": node.id, "skill_id": node.skill_id},
+                    skill_id=node.skill_id,
+                )
             return MissionResult(success=True, completed_nodes=[node.id])
 
         node.status = "failed"
         error = getattr(result, "error", None) or "Skill execution failed"
         node.metadata["error"] = error
+        if mission is not None:
+            self._publish_event(
+                "skill.node.failed",
+                mission,
+                payload={"node_id": node.id, "skill_id": node.skill_id, "error": error},
+                severity="error",
+                skill_id=node.skill_id,
+            )
         return MissionResult(success=False, failed_node=node.id, error=error)
 
     def _write_report(self, mission: Mission, *, error: str | None) -> Path:
@@ -336,3 +391,50 @@ class MissionRuntime:
         if active_project is None:
             return self.registry.allocate_workspace(mission_id)
         return self.core.project_runtime.mission_workspace(active_project.id, mission_id)
+
+    def _run_skill_with_context(self, node: MissionNode, mission: Mission | None):
+        run = self.skill_engine.run
+        event_context = self._event_context(mission) if mission is not None else None
+        try:
+            parameters = signature(run).parameters
+        except (TypeError, ValueError):
+            parameters = {}
+        if "context" in parameters:
+            return run(node.skill_id, node.inputs, context=event_context)
+        return run(node.skill_id, node.inputs)
+
+    def _publish_event(
+        self,
+        event_type: str,
+        mission: Mission,
+        *,
+        payload: dict[str, Any] | None = None,
+        severity: str = "info",
+        skill_id: str | None = None,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(
+                event_type,
+                "mission_runtime",
+                payload or {},
+                severity=severity,
+                project_id=mission.metadata.get("project_id"),
+                mission_id=mission.id,
+                skill_id=skill_id,
+                correlation_id=mission.metadata.get("correlation_id"),
+            )
+        except Exception:
+            return
+
+    def _event_context(self, mission: Mission | None) -> dict[str, Any]:
+        if mission is None:
+            return {}
+        return {
+            "project_id": mission.metadata.get("project_id"),
+            "mission_id": mission.id,
+            "correlation_id": mission.metadata.get("correlation_id"),
+        }

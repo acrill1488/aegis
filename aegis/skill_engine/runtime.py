@@ -51,15 +51,19 @@ class SkillEngineRuntime:
         self,
         skill_id: str,
         inputs: dict[str, Any] | None = None,
+        *,
+        context: dict[str, Any] | None = None,
     ) -> SkillRunResult:
-        return self._execute(skill_id, inputs=inputs, dry_run=False)
+        return self._execute(skill_id, inputs=inputs, dry_run=False, event_context=context)
 
     def dry_run(
         self,
         skill_id: str,
         inputs: dict[str, Any] | None = None,
+        *,
+        context: dict[str, Any] | None = None,
     ) -> SkillRunResult:
-        return self._execute(skill_id, inputs=inputs, dry_run=True)
+        return self._execute(skill_id, inputs=inputs, dry_run=True, event_context=context)
 
     def validate(self, skill_id: str) -> dict[str, Any]:
         skill = self._get_skill(skill_id)
@@ -99,6 +103,7 @@ class SkillEngineRuntime:
         *,
         inputs: dict[str, Any] | None,
         dry_run: bool,
+        event_context: dict[str, Any] | None = None,
     ) -> SkillRunResult:
         skill = self._get_skill(skill_id)
         validation = self.validate(skill_id)
@@ -106,19 +111,44 @@ class SkillEngineRuntime:
             raise ValueError("; ".join(validation["errors"]))
 
         started_at = self._now()
-        context: dict[str, Any] = {"inputs": inputs or {}, "nodes": {}}
+        event_context = dict(event_context or {})
+        event_context.setdefault("skill_id", skill.id)
+        self._publish_event(
+            "skill.started",
+            skill.id,
+            payload={"dry_run": dry_run, "input_keys": sorted((inputs or {}).keys())},
+            **event_context,
+        )
+        context: dict[str, Any] = {
+            "inputs": inputs or {},
+            "nodes": {},
+            "event_context": event_context,
+        }
         node_results: list[dict[str, Any]] = []
         success = True
         error: str | None = None
 
         for node in skill.nodes:
             try:
-                result = self._run_node(node, context=context, dry_run=dry_run)
+                result = self._run_node(
+                    node,
+                    context=context,
+                    dry_run=dry_run,
+                    event_context=event_context,
+                    skill_id=skill.id,
+                )
             except Exception as exc:
                 result = self._failed_node_result(
                     node,
                     exc,
                     recovery=getattr(exc, "recovery_metadata", None),
+                )
+                self._publish_event(
+                    "skill.node.failed",
+                    skill.id,
+                    payload={"node_id": node.id, "action": node.action, "error": str(exc)},
+                    severity="error",
+                    **event_context,
                 )
             node_results.append(result)
             context["nodes"][node.id] = result
@@ -155,6 +185,18 @@ class SkillEngineRuntime:
             },
         )
         self._record_skill_experience(result)
+        self._publish_event(
+            "skill.completed" if success else "skill.failed",
+            skill.id,
+            payload={
+                "success": success,
+                "error": error,
+                "duration": self._duration_seconds(started_at, completed_at),
+                "node_count": len(node_results),
+            },
+            severity="info" if success else "error",
+            **event_context,
+        )
         return result
 
     def _run_node(
@@ -163,10 +205,18 @@ class SkillEngineRuntime:
         *,
         context: dict[str, Any],
         dry_run: bool,
+        event_context: dict[str, Any],
+        skill_id: str,
     ) -> dict[str, Any]:
         started_at = self._now()
         payload = self._resolve_value(node.payload, context)
         expect = self._resolve_value(node.expect, context)
+        self._publish_event(
+            "skill.node.started",
+            skill_id,
+            payload={"node_id": node.id, "action": node.action},
+            **event_context,
+        )
         if dry_run:
             output = {"dry_run": True, "action": node.action, "payload": payload}
             validation = {"success": True, "errors": [], "skipped": True}
@@ -182,7 +232,7 @@ class SkillEngineRuntime:
         metadata = to_plain(node.metadata)
         if not dry_run and recovery:
             metadata["recovery"] = recovery
-        return {
+        result = {
             "node_id": node.id,
             "type": node.type,
             "action": node.action,
@@ -195,6 +245,19 @@ class SkillEngineRuntime:
             "validation": validation,
             "metadata": metadata,
         }
+        self._publish_event(
+            "skill.node.completed" if validation["success"] else "skill.node.failed",
+            skill_id,
+            payload={
+                "node_id": node.id,
+                "action": node.action,
+                "success": validation["success"],
+                "errors": validation.get("errors", []),
+            },
+            severity="info" if validation["success"] else "error",
+            **event_context,
+        )
+        return result
 
     def _invoke_action(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
         target_result = self.action_dispatcher.run_step(
@@ -225,6 +288,7 @@ class SkillEngineRuntime:
                 payload,
                 exc,
                 context={
+                    **dict(context.get("event_context") or {}),
                     "source": f"skill:{node.id}",
                     "metadata": node.metadata,
                     "action_dispatcher": self.action_dispatcher,
@@ -400,6 +464,31 @@ class SkillEngineRuntime:
             "error": str(exc),
             "metadata": metadata,
         }
+
+    def _publish_event(
+        self,
+        event_type: str,
+        source: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        severity: str = "info",
+        **context: Any,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(
+                event_type,
+                "skill_engine",
+                payload or {},
+                severity=severity,
+                source_id=source,
+                **context,
+            )
+        except Exception:
+            return
 
     def _record_skill_experience(self, result: SkillRunResult) -> None:
         operational_memory = getattr(self.core, "operational_memory", None)

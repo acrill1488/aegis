@@ -74,7 +74,49 @@ def test_goal_runtime_executes_through_mission_runtime(tmp_path):
     assert execution["success"] is True
     assert execution["mission"].status == "completed"
     assert execution["mission_result"].success is True
+    assert execution["result"] is execution["mission_result"]
     assert skill_engine.calls == [("browser.wikipedia.search", {"query": "AEGIS"})]
+
+
+def test_mission_runtime_passes_event_context_to_skill_engine(tmp_path):
+    class ContextSkillEngine(FakeSkillEngine):
+        def __init__(self, registry):
+            super().__init__(registry)
+            self.contexts = []
+
+        def run(self, skill_id, inputs, context=None):
+            self.contexts.append(context)
+            return super().run(skill_id, inputs)
+
+    registry = SkillRegistry(default_root=tmp_path / "missing")
+    registry.register(Skill(id="browser.wikipedia.search", name="Wikipedia Search"))
+    skill_engine = ContextSkillEngine(registry)
+    runtime = MissionRuntime(
+        skill_engine=skill_engine,
+        registry=MissionRegistry(tmp_path / "missions"),
+    )
+    mission = runtime.create(
+        "test mission",
+        metadata={"project_id": "project_1"},
+    )
+    mission.graph = [
+        MissionNode(
+            id="node_1",
+            skill_id="browser.wikipedia.search",
+            inputs={"query": "AEGIS"},
+        )
+    ]
+    runtime.registry.save(mission)
+
+    runtime.run(mission.id)
+
+    assert skill_engine.contexts == [
+        {
+            "project_id": "project_1",
+            "mission_id": mission.id,
+            "correlation_id": mission.metadata["correlation_id"],
+        }
+    ]
 
 
 def test_mission_result_keeps_skill_recovery_info(tmp_path):

@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from aegis.core.core import AegisCore
-from aegis.serialization import to_plain
+from aegis.serialization import to_json, to_plain
 from .daemon_guard import ensure_daemon_running
 
 app = typer.Typer()
@@ -71,6 +71,34 @@ def mission_status(mission_id: str = typer.Argument(..., metavar="ID")):
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
     console.print_json(data=to_plain(status))
+
+
+@app.command("timeline")
+def mission_timeline(
+    mission_id: str = typer.Argument(..., metavar="MISSION_ID"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Show Mission event timeline."""
+    events = AegisCore().event_platform.timeline(mission_id=mission_id)
+    if json_output:
+        console.print_json(data=to_plain([event.to_dict() for event in events]))
+        return
+
+    table = Table(title=f"Mission Timeline: {mission_id}")
+    table.add_column("Time")
+    table.add_column("Type")
+    table.add_column("Severity")
+    table.add_column("Source")
+    table.add_column("Payload")
+    for event in events:
+        table.add_row(
+            event.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            event.type,
+            event.severity,
+            event.source,
+            to_json(event.payload, indent=None),
+        )
+    console.print(table)
 
 
 @app.command("list")

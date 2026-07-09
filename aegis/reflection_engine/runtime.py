@@ -86,6 +86,31 @@ class ReflectionEngineRuntime:
         self.store.append_report(report)
         self.store.append_recommendations(recommendations)
         self._record_experience(report)
+        self._publish_event(
+            "reflection.created",
+            payload={
+                "report_id": report.id,
+                "mission_id": report.mission_id,
+                "success": report.success,
+                "recommendation_count": len(recommendations),
+            },
+            project_id=report.project_id,
+            mission_id=report.mission_id,
+            correlation_id=getattr(mission, "metadata", {}).get("correlation_id"),
+        )
+        for recommendation in recommendations:
+            self._publish_event(
+                "reflection.recommendation.created",
+                payload={
+                    "recommendation_id": recommendation.id,
+                    "type": recommendation.type,
+                    "target": recommendation.target,
+                    "priority": recommendation.priority,
+                },
+                project_id=report.project_id,
+                mission_id=report.mission_id,
+                correlation_id=getattr(mission, "metadata", {}).get("correlation_id"),
+            )
         return report
 
     def list_reports(self, limit: int = 20) -> list[ReflectionReport]:
@@ -464,3 +489,28 @@ class ReflectionEngineRuntime:
         if started_at is None or completed_at is None:
             return None
         return (completed_at - started_at).total_seconds()
+
+    def _publish_event(
+        self,
+        event_type: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        project_id: str | None = None,
+        mission_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(
+                event_type,
+                "reflection_engine",
+                payload or {},
+                project_id=project_id,
+                mission_id=mission_id,
+                correlation_id=correlation_id,
+            )
+        except Exception:
+            return

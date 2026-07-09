@@ -36,7 +36,14 @@ class ProjectRuntime:
             description=description,
         )
         project.workspace_path = str(self.registry.ensure_workspace(project.id))
-        return self._with_activity(self.registry.save(project))
+        project = self._with_activity(self.registry.save(project))
+        self._publish_event(
+            "project.created",
+            project.id,
+            payload={"name": project.name, "description": project.description},
+            project_id=project.id,
+        )
+        return project
 
     def list(self) -> list[Project]:
         active_id = self._active_project_id()
@@ -59,7 +66,14 @@ class ProjectRuntime:
         if project is None:
             raise KeyError(f"Project not found: {project_id}")
         self._write_active_project_id(project.id)
-        return self._with_activity(project, active_id=project.id)
+        project = self._with_activity(project, active_id=project.id)
+        self._publish_event(
+            "project.active_changed",
+            project.id,
+            payload={"project_id": project.id, "name": project.name},
+            project_id=project.id,
+        )
+        return project
 
     def get_active(self) -> Project | None:
         project_id = self._active_project_id()
@@ -279,3 +293,26 @@ class ProjectRuntime:
 
     def to_plain(self, value: Any) -> Any:
         return to_plain(value)
+
+    def _publish_event(
+        self,
+        event_type: str,
+        source: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        project_id: str | None = None,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(
+                event_type,
+                "project_runtime",
+                payload or {},
+                project_id=project_id,
+                metadata={"source_id": source},
+            )
+        except Exception:
+            return

@@ -10,7 +10,7 @@ from .models import Goal
 
 
 class GoalEngineRuntime:
-    """Parses user goals and executes matched skills through Skill Engine."""
+    """Parses user goals and executes matched skills through Mission Runtime."""
 
     def __init__(
         self,
@@ -60,18 +60,13 @@ class GoalEngineRuntime:
             priority=int(goal.metadata.get("priority", 50)),
             metadata={"source": "goal_engine"},
         )
-        mission_result = self.mission_runtime.run(mission)
-        result = self._skill_result_from_mission(mission)
+        mission_result = self.mission_runtime.run(mission.id)
+        mission = self.mission_runtime.show(mission.id)
         return {
             "goal": goal,
             "mission": mission,
             "mission_result": mission_result,
             "success": mission_result.success,
             "error": mission_result.error,
-            "result": result,
+            "result": mission_result,
         }
-
-    def _skill_result_from_mission(self, mission) -> Any | None:
-        if not mission.graph:
-            return None
-        return mission.graph[-1].metadata.get("skill_result")

@@ -284,11 +284,13 @@ class BrowserAgent(BaseAgent):
         try:
             output = self._invoke(invocation.capability_id, invocation.payload)
         except Exception as exc:
+            self._publish_browser_event(invocation.capability_id, invocation.payload, False, error=str(exc))
             return AgentInvocationResult(
                 success=False,
                 error=str(exc),
                 metadata={"capability_id": invocation.capability_id},
             )
+        self._publish_browser_event(invocation.capability_id, invocation.payload, True, output=output)
         return AgentInvocationResult(success=True, output=output)
 
     def _invoke(self, capability_id: str, payload: dict) -> dict:
@@ -372,3 +374,34 @@ class BrowserAgent(BaseAgent):
         if value is None or value == "":
             raise ValueError(f"{capability_id} requires payload.{key}")
         return str(value)
+
+    def _publish_browser_event(
+        self,
+        capability_id: str,
+        payload: dict,
+        success: bool,
+        *,
+        output: dict | None = None,
+        error: str | None = None,
+    ) -> None:
+        event_platform = getattr(self.core, "event_platform", None)
+        publish = getattr(event_platform, "publish", None)
+        if not callable(publish):
+            return
+        event_type = "browser.opened" if capability_id == "browser.open" and success else (
+            "browser.action.completed" if success else "browser.action.failed"
+        )
+        try:
+            publish(
+                event_type,
+                "browser_agent",
+                {
+                    "action": capability_id,
+                    "payload": payload,
+                    "output": output,
+                    "error": error,
+                },
+                severity="info" if success else "error",
+            )
+        except Exception:
+            return
