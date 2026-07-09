@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from aegis.agents.runtime import AgentInvocation
+from aegis.serialization import to_plain
 
 from .models import CapabilityInvocationRequest, CapabilityInvocationResult
 
@@ -77,8 +78,8 @@ class CapabilityRouter:
         return CapabilityInvocationResult(
             success=agent_result.success,
             capability_id=request.capability_id,
-            output=dict(agent_result.output),
+            output=to_plain(agent_result.output),
             error=agent_result.error,
-            selected_route=route,
-            metadata=dict(agent_result.metadata),
+            selected_route=to_plain(route),
+            metadata=to_plain(agent_result.metadata),
         )
