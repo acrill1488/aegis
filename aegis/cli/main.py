@@ -15,6 +15,7 @@ from aegis.runtime.manager import RuntimeManager
 from aegis.config.runtime_config import get_runtime_profile
 from aegis.core.core import AegisCore
 from aegis.tools.registry import ToolRegistry
+from aegis.serialization import to_plain
 
 # Import workspace commands
 from .workspace import app as workspace_app
@@ -276,10 +277,24 @@ def ask(
     capability: str = typer.Option("auto", "--capability", "-c"),
     role: str = typer.Option("assistant", "--role", "-r")
 ):
-    """Ask the AEGIS agent a question."""
+    """Ask AEGIS to resolve and run a natural-language goal."""
     core = AegisCore()
-    response = core.brain.ask(prompt, capability, role)
-    console.print(f"[bold blue]Response:[/bold blue] {response}")
+    if capability != "auto" or role != "assistant":
+        response = core.brain.ask(prompt, capability, role)
+        console.print(f"[bold blue]Response:[/bold blue] {response}")
+        return
+
+    execution = core.goal_engine.execute(prompt)
+    goal = execution["goal"]
+    console.print(f"[bold]Goal:[/bold] {goal.text}")
+    console.print(f"[bold]Skill:[/bold] {goal.selected_skill or 'unresolved'}")
+    console.print(f"[bold]Inputs:[/bold] {to_plain(goal.inputs)}")
+    if not execution["success"] and execution["result"] is None:
+        console.print(f"[red]{execution['error']}[/red]")
+        raise typer.Exit(code=1)
+    console.print(to_plain(execution["result"]))
+    if not execution["success"]:
+        raise typer.Exit(code=1)
 
 
 @app.command()

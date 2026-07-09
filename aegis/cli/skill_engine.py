@@ -57,39 +57,69 @@ def validate_skill(skill_id: str = typer.Argument(..., metavar="SKILL_ID")):
 @app.command("dry-run")
 def dry_run_skill(
     skill_id: str = typer.Argument(..., metavar="SKILL_ID"),
+    extra_inputs: list[str] = typer.Argument(None, metavar="KEY=VALUE"),
     input_json: str = typer.Option("{}", "--input-json"),
     input_file: Path | None = typer.Option(None, "--input-file"),
+    query: str | None = typer.Option(None, "--query"),
 ):
     """Render and validate a skill graph run without executing actions."""
-    inputs = _load_inputs(input_json=input_json, input_file=input_file)
+    inputs = _load_inputs(
+        input_json=input_json,
+        input_file=input_file,
+        query=query,
+        extra_inputs=extra_inputs,
+    )
     _print_run_result(AegisCore().skill_engine.dry_run(skill_id, inputs))
 
 
 @app.command("run")
 def run_skill(
     skill_id: str = typer.Argument(..., metavar="SKILL_ID"),
+    extra_inputs: list[str] = typer.Argument(None, metavar="KEY=VALUE"),
     input_json: str = typer.Option("{}", "--input-json"),
     input_file: Path | None = typer.Option(None, "--input-file"),
+    query: str | None = typer.Option(None, "--query"),
 ):
     """Run a YAML skill graph through AEGIS runtimes."""
     result = AegisCore().skill_engine.run(
         skill_id,
-        _load_inputs(input_json=input_json, input_file=input_file),
+        _load_inputs(
+            input_json=input_json,
+            input_file=input_file,
+            query=query,
+            extra_inputs=extra_inputs,
+        ),
     )
     _print_run_result(result)
     if not result.success:
         raise typer.Exit(code=1)
 
 
-def _load_inputs(input_json: str, input_file: Path | None) -> dict:
+def _load_inputs(
+    input_json: str,
+    input_file: Path | None,
+    query: str | None = None,
+    extra_inputs: list[str] | None = None,
+) -> dict:
     if input_file is not None:
         try:
             input_text = input_file.read_text(encoding="utf-8-sig")
         except OSError as exc:
             console.print(f"[red]Cannot read --input-file:[/red] {exc}")
             raise typer.Exit(code=1) from exc
-        return _parse_inputs(input_text, source=f"--input-file {input_file}")
-    return _parse_inputs(input_json, source="--input-json")
+        inputs = _parse_inputs(input_text, source=f"--input-file {input_file}")
+    else:
+        inputs = _parse_inputs(input_json, source="--input-json")
+    if query is not None:
+        inputs["query"] = query
+    for item in extra_inputs or []:
+        key, separator, value = item.partition("=")
+        if not separator or not key.strip():
+            console.print(f"[red]Invalid input argument:[/red] {item}")
+            console.print("[yellow]Use KEY=VALUE, for example query=AEGIS.[/yellow]")
+            raise typer.Exit(code=1)
+        inputs[key.strip()] = value
+    return inputs
 
 
 def _parse_inputs(input_json: str, *, source: str) -> dict:
