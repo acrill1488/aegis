@@ -58,6 +58,9 @@ class AegisCore:
             from aegis.agents.windows import WindowsAgent
 
             self.agent_runtime.register(WindowsAgent(self))
+        from aegis.agents.browser import BrowserAgent
+
+        self.agent_runtime.register(BrowserAgent(self))
         self.capability_runtime.register_agent_capabilities()
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
