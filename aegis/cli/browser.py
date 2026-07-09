@@ -6,6 +6,7 @@ from rich.json import JSON
 
 from aegis.ipc import IPCClient, IPCConnectionError
 from aegis.serialization import to_plain
+from .daemon_guard import ensure_daemon_running
 
 app = typer.Typer()
 console = Console()
@@ -209,6 +210,7 @@ def close(oneshot: bool = typer.Option(False, "--oneshot")):
 
 def _health() -> dict:
     try:
+        ensure_daemon_running(console)
         output = IPCClient().request("browser", "status")
         return output if isinstance(output, dict) else {"result": output}
     except IPCConnectionError as exc:
@@ -223,6 +225,7 @@ def _invoke(
     capability_id: str | None = None,
 ):
     try:
+        ensure_daemon_running(console)
         output = IPCClient().request("browser", action, payload)
         return output if isinstance(output, dict) else {"result": output}
     except IPCConnectionError as exc:

@@ -4,6 +4,7 @@ from rich.json import JSON
 
 from aegis.ipc import IPCClient, IPCConnectionError
 from aegis.serialization import to_plain
+from .daemon_guard import ensure_daemon_running
 
 app = typer.Typer()
 console = Console()
@@ -43,6 +44,7 @@ def locate(
 
 def _invoke(action: str, payload: dict):
     try:
+        ensure_daemon_running(console)
         output = IPCClient().request("ui", action, payload)
         output = _normalize_output(action, payload, output)
         return output if isinstance(output, dict) else {"result": output}

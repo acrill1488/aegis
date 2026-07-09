@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, is_dataclass
 from importlib import metadata
 from typing import Any
@@ -12,6 +13,13 @@ from pydantic import BaseModel, Field
 from aegis.agents.browser import BrowserService
 from aegis.agents.windows import ProcessWatcher, SystemWatcher
 from aegis.core.core import AegisCore
+from aegis.daemon.state import (
+    DaemonHeartbeat,
+    DaemonStateStore,
+    STATE_READY,
+    STATE_STARTING,
+    STATE_STOPPING,
+)
 from aegis.ipc import IPCRequest, IPCServer
 from aegis.services import ServiceStatus
 
@@ -158,13 +166,31 @@ def serve_ipc(
     headless_browser: bool = False,
     on_ready: Any | None = None,
 ) -> None:
+    state_store = DaemonStateStore()
+    state_store.write(STATE_STARTING, pid=os.getpid(), host=host, port=port)
+    heartbeat: DaemonHeartbeat | None = None
     runtime = DaemonRuntime(headless_browser=headless_browser)
     server = IPCServer(host=host, port=port, handler=runtime.handle_ipc)
-    try:
+
+    def mark_ready() -> None:
+        nonlocal heartbeat
+        heartbeat = DaemonHeartbeat(
+            state_store,
+            state=STATE_READY,
+            pid=os.getpid(),
+            host=host,
+            port=port,
+        )
+        heartbeat.start()
         if on_ready is not None:
             on_ready()
-        server.serve_forever()
+
+    try:
+        server.serve_forever(on_ready=mark_ready)
     finally:
+        if heartbeat is not None:
+            heartbeat.stop()
+        state_store.write(STATE_STOPPING, pid=os.getpid(), host=host, port=port)
         runtime.stop()
 
 

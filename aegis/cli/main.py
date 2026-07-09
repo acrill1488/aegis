@@ -16,6 +16,7 @@ from aegis.config.runtime_config import get_runtime_profile
 from aegis.core.core import AegisCore
 from aegis.tools.registry import ToolRegistry
 from aegis.serialization import to_plain
+from .daemon_guard import ensure_daemon_running
 
 # Import workspace commands
 from .workspace import app as workspace_app
@@ -280,6 +281,7 @@ def ask(
     role: str = typer.Option("assistant", "--role", "-r")
 ):
     """Ask AEGIS to resolve and run a natural-language goal."""
+    ensure_daemon_running(console)
     core = AegisCore()
     if capability != "auto" or role != "assistant":
         response = core.brain.ask(prompt, capability, role)

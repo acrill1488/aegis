@@ -6,6 +6,7 @@ from rich.table import Table
 
 from aegis.core.core import AegisCore
 from aegis.serialization import to_plain
+from .daemon_guard import ensure_daemon_running
 
 app = typer.Typer()
 console = Console()
@@ -36,6 +37,7 @@ def create_mission(
 @app.command("run")
 def run_mission(mission_id: str = typer.Argument(..., metavar="ID")):
     """Run a Mission graph."""
+    ensure_daemon_running(console)
     runtime = AegisCore().mission_runtime
     try:
         result = runtime.run(mission_id)

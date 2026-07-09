@@ -9,11 +9,42 @@ from rich.console import Console
 
 from aegis.daemon.client import DaemonClient
 from aegis.daemon.server import serve_ipc
+from aegis.daemon.supervisor import DaemonSupervisor
 from aegis.ipc import IPCClient, IPCConnectionError
 from aegis.serialization import to_json
 
 app = typer.Typer()
 console = Console()
+
+
+@app.command()
+def start():
+    """Start the AEGIS daemon in the background."""
+    result = DaemonSupervisor().start_background()
+    _print_json(result)
+    if not result.get("running"):
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def stop():
+    """Stop the background AEGIS daemon."""
+    result = DaemonSupervisor().stop()
+    _print_json(result)
+    if result.get("error"):
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def restart():
+    """Restart the background AEGIS daemon."""
+    supervisor = DaemonSupervisor()
+    stop_result = supervisor.stop()
+    start_result = supervisor.start_background()
+    result = {"stop": stop_result, "start": start_result}
+    _print_json(result)
+    if not start_result.get("running"):
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -52,7 +83,7 @@ def status(
     port: int = typer.Option(8787, "--port"),
 ):
     """Show daemon status."""
-    _print_json(_ipc_request(host, port, "health", "status"))
+    _print_json(DaemonSupervisor(host=host, port=port).status())
 
 
 @app.command()

@@ -1,8 +1,9 @@
 """HTTP daemon support for AEGIS."""
 
 from .client import DaemonClient
+from .supervisor import DaemonSupervisor
 
-__all__ = ["DaemonClient", "create_app"]
+__all__ = ["DaemonClient", "DaemonSupervisor", "create_app"]
 
 
 def __getattr__(name: str):

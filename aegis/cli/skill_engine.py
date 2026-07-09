@@ -10,6 +10,7 @@ from rich.table import Table
 
 from aegis.core.core import AegisCore
 from aegis.serialization import to_plain
+from .daemon_guard import ensure_daemon_running
 
 app = typer.Typer()
 console = Console()
@@ -81,6 +82,7 @@ def run_skill(
     query: str | None = typer.Option(None, "--query"),
 ):
     """Run a YAML skill graph through AEGIS runtimes."""
+    ensure_daemon_running(console)
     result = AegisCore().skill_engine.run(
         skill_id,
         _load_inputs(

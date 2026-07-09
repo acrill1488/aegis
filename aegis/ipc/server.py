@@ -26,7 +26,7 @@ class IPCServer:
         self.handler = handler
         self._server: socketserver.TCPServer | None = None
 
-    def serve_forever(self) -> None:
+    def serve_forever(self, on_ready: Callable[[], None] | None = None) -> None:
         outer = self
 
         class Handler(socketserver.StreamRequestHandler):
@@ -42,6 +42,8 @@ class IPCServer:
 
         self._server = Server((self.host, self.port), Handler)
         try:
+            if on_ready is not None:
+                on_ready()
             self._server.serve_forever()
         finally:
             self.close()
