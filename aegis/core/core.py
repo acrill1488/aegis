@@ -35,6 +35,7 @@ from aegis.recovery_engine import RecoveryEngineRuntime
 from aegis.operational_memory import OperationalMemoryRuntime
 from aegis.planner import AdaptivePlannerRuntime
 from aegis.reflection_engine import ReflectionEngineRuntime
+from aegis.desktop_runtime import DesktopRuntime
 
 class AegisCore:
     def __init__(self):
@@ -75,6 +76,8 @@ class AegisCore:
         self.registry.register("executor_runtime", self.executor_runtime)
         self.ui_intelligence = UIIntelligenceRuntime(self)
         self.registry.register("ui_intelligence", self.ui_intelligence)
+        self.desktop_runtime = DesktopRuntime(self)
+        self.registry.register("desktop_runtime", self.desktop_runtime)
         self.mcp_runtime = MCPRuntime(self)
         self.registry.register("mcp_runtime", self.mcp_runtime)
         self.task_planning_runtime = TaskPlanningRuntime(
@@ -138,6 +141,7 @@ class AegisCore:
             },
         )
         self.ui_intelligence.register_capabilities()
+        self.desktop_runtime.register_capabilities()
         self.mcp_runtime.auto_discover_enabled()
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
