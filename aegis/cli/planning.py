@@ -45,7 +45,7 @@ def create_plan(
     metadata_json: str = typer.Option("{}", "--metadata-json"),
     metadata_file: Path | None = typer.Option(None, "--metadata-file"),
 ):
-    """Create an empty declarative plan for a task."""
+    """Create a declarative execution graph plan for a task."""
     metadata = _load_object(metadata_json, metadata_file, "metadata")
     runtime = AegisCore().task_planning_runtime
     try:
@@ -112,7 +112,7 @@ def show_task(task_id: str = typer.Argument(..., metavar="TASK_ID")):
 
 @app.command("show-plan")
 def show_plan(plan_id: str = typer.Argument(..., metavar="PLAN_ID")):
-    """Show one Task Planning Runtime plan."""
+    """Show one Task Planning Runtime plan with graph nodes and edges."""
     plan = AegisCore().task_planning_runtime.get_plan(plan_id)
     if plan is None:
         console.print(f"[red]Plan not found: {plan_id}[/red]")

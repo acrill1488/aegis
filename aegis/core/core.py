@@ -49,7 +49,9 @@ class AegisCore:
         self.registry.register("agent_runtime", self.agent_runtime)
         self.capability_runtime = CapabilityRuntime(self)
         self.registry.register("capability_runtime", self.capability_runtime)
-        self.task_planning_runtime = TaskPlanningRuntime()
+        self.task_planning_runtime = TaskPlanningRuntime(
+            capability_runtime=self.capability_runtime,
+        )
         self.registry.register("task_planning_runtime", self.task_planning_runtime)
         self.agent_runtime.register(EchoAgent())
         if platform.system().lower() == "windows":

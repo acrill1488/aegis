@@ -9,22 +9,30 @@ from uuid import uuid4
 from aegis.serialization import to_plain
 
 from .models import ExecutionGraph, Plan, PlanStep, Task
+from .plan_builder import PlanBuilder
 
 
 DEFAULT_PLANNING_PATH = Path(r"F:\AI_WORKSPACE\planning")
 
 
 class TaskPlanningRuntime:
-    """Persistent Task Planning Runtime v1 stage 1.
+    """Persistent Task Planning Runtime.
 
-    Stage 1 stores Tasks and creates declarative empty Plans only. It does not
-    decompose work, validate graphs, or invoke capabilities.
+    The runtime stores Tasks and Plans, delegates graph construction to
+    PlanBuilder, and does not execute plan steps or invoke capabilities.
     """
 
-    def __init__(self, path: str | Path = DEFAULT_PLANNING_PATH):
+    def __init__(
+        self,
+        path: str | Path = DEFAULT_PLANNING_PATH,
+        capability_runtime: Any | None = None,
+        plan_builder: PlanBuilder | None = None,
+    ):
         self.path = Path(path)
         self.tasks_path = self.path / "tasks.json"
         self.plans_path = self.path / "plans.json"
+        self.capability_runtime = capability_runtime
+        self.plan_builder = plan_builder or PlanBuilder()
         self._tasks: dict[str, Task] = {}
         self._plans: dict[str, Plan] = {}
         self._persistence_available = True
@@ -55,14 +63,24 @@ class TaskPlanningRuntime:
         task_id: str,
         metadata: dict[str, Any] | None = None,
         plan_id: str | None = None,
+        capability_runtime: Any | None = None,
     ) -> Plan:
         if task_id not in self._tasks:
             raise KeyError(f"Task not found: {task_id}")
 
+        task = self._tasks[task_id]
+        graph = self.plan_builder.build(
+            task,
+            capability_runtime=(
+                capability_runtime
+                if capability_runtime is not None
+                else self.capability_runtime
+            ),
+        )
         plan = Plan(
             id=plan_id or self._new_id("plan"),
             task_id=task_id,
-            graph=ExecutionGraph(),
+            graph=graph,
             metadata=dict(metadata or {}),
         )
         self._plans[plan.id] = plan
