@@ -49,6 +49,7 @@ from .models_registry import app as models_registry_app
 from .model_runtime import app as model_runtime_app
 from .capabilities import app as capabilities_app
 from .planning import app as planning_app
+from .executor import app as executor_app
 from .browser import app as browser_app
 from .mcp_runtime import app as mcp_runtime_app
 from .ui import app as ui_app
@@ -82,6 +83,7 @@ app.add_typer(models_registry_app, name="model-registry", help="Model Registry c
 app.add_typer(model_runtime_app, name="model-runtime", help="Model Runtime commands")
 app.add_typer(capabilities_app, name="capabilities", help="Capability Runtime commands")
 app.add_typer(planning_app, name="planning", help="Task Planning Runtime commands")
+app.add_typer(executor_app, name="executor", help="Agent Executor Runtime commands")
 app.add_typer(browser_app, name="browser", help="Browser Runtime commands")
 app.add_typer(mcp_runtime_app, name="mcp", help="MCP Runtime commands")
 app.add_typer(ui_app, name="ui", help="Unified UI Runtime commands")

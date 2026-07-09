@@ -17,12 +17,13 @@ from aegis.models.providers import OllamaProvider
 from aegis.system import SystemAPI
 from aegis.live import ContextStore
 from aegis.agents.runtime import AgentRuntime, EchoAgent
-from aegis.capabilities import CapabilityRuntime
+from aegis.capabilities import CapabilityDescriptor, CapabilityRuntime
 from aegis.distributed import MachineRegistry
 from aegis.mcp_runtime import MCPRuntime
 from aegis.planning import TaskPlanningRuntime
 from aegis.services import ServiceRuntime
 from aegis.ui_intelligence import UIIntelligenceRuntime
+from aegis.executor import ExecutorRuntime
 
 class AegisCore:
     def __init__(self):
@@ -54,6 +55,11 @@ class AegisCore:
         self.registry.register("service_runtime", self.service_runtime)
         self.capability_runtime = CapabilityRuntime(self)
         self.registry.register("capability_runtime", self.capability_runtime)
+        self.executor_runtime = ExecutorRuntime(
+            capability_runtime=self.capability_runtime,
+            core=self,
+        )
+        self.registry.register("executor_runtime", self.executor_runtime)
         self.ui_intelligence = UIIntelligenceRuntime(self)
         self.registry.register("ui_intelligence", self.ui_intelligence)
         self.mcp_runtime = MCPRuntime(self)
@@ -71,6 +77,28 @@ class AegisCore:
 
         self.agent_runtime.register(BrowserAgent(self))
         self.capability_runtime.register_agent_capabilities()
+        self.capability_runtime.register(
+            CapabilityDescriptor(
+                id="executor.execute",
+                name="Execute Agent Executor Plan",
+                version="1",
+                owner_agent="executor_runtime",
+                machine_scope="local",
+                permissions=["executor.execute"],
+                input_schema={"type": "object"},
+                output_schema={"type": "object"},
+                tags=["executor", "runtime", "planning"],
+                metadata={
+                    "description": "Run Observe/Reason/Action/Validate execution plans.",
+                    "side_effects": ["capability.invoke"],
+                },
+            ),
+            {
+                "type": "runtime",
+                "runtime": "executor_runtime",
+                "method": "execute_payload",
+            },
+        )
         self.ui_intelligence.register_capabilities()
         self.mcp_runtime.auto_discover_enabled()
         self.memory = MemoryManager(event_bus=self.events)
