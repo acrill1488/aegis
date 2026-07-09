@@ -17,6 +17,7 @@ from aegis.models.providers import OllamaProvider
 from aegis.system import SystemAPI
 from aegis.live import ContextStore
 from aegis.agents.runtime import AgentRuntime, EchoAgent
+from aegis.capabilities import CapabilityRuntime
 from aegis.distributed import MachineRegistry
 
 class AegisCore:
@@ -45,11 +46,14 @@ class AegisCore:
         self.registry.register("model_runtime", self.model_runtime)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)
+        self.capability_runtime = CapabilityRuntime(self)
+        self.registry.register("capability_runtime", self.capability_runtime)
         self.agent_runtime.register(EchoAgent())
         if platform.system().lower() == "windows":
             from aegis.agents.windows import WindowsAgent
 
             self.agent_runtime.register(WindowsAgent(self))
+        self.capability_runtime.register_agent_capabilities()
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
         self.system = SystemAPI()
