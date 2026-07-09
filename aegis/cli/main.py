@@ -59,6 +59,7 @@ from .ui import app as ui_app
 from .scenario import app as scenario_app
 from .skill_engine import app as skill_engine_app
 from .mission import app as mission_app
+from .orchestrator import app as orchestrator_app, print_queue_alias
 from .project import app as project_app
 from .recovery import app as recovery_app
 from .reflection import app as reflection_app
@@ -100,6 +101,7 @@ app.add_typer(ui_app, name="ui", help="Unified UI Runtime commands")
 app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
 app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
 app.add_typer(mission_app, name="mission", help="Mission Engine commands")
+app.add_typer(orchestrator_app, name="orchestrator", help="Execution Orchestrator commands")
 app.add_typer(project_app, name="project", help="Project Runtime commands")
 app.add_typer(recovery_app, name="recovery", help="Recovery Engine commands")
 app.add_typer(reflection_app, name="reflection", help="Reflection Engine commands")
@@ -280,6 +282,12 @@ def tools_status():
         available = "✅" if tool_info["available"] else "❌"
         table.add_row(tool_info["name"], tool_info["description"], available)
     
+    
+
+@app.command("queue")
+def queue_alias():
+    """Alias for aegis orchestrator queue."""
+    print_queue_alias()
 
 
 @app.command()

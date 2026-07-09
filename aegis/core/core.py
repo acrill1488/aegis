@@ -29,6 +29,7 @@ from aegis.scenarios import ScenarioRuntime
 from aegis.skill_engine import SkillEngineRuntime
 from aegis.goal_engine import GoalEngineRuntime
 from aegis.mission_engine import MissionRuntime
+from aegis.orchestrator import ExecutionOrchestratorRuntime
 from aegis.project_runtime import ProjectRuntime
 from aegis.recovery_engine import RecoveryEngineRuntime
 from aegis.operational_memory import OperationalMemoryRuntime
@@ -92,6 +93,8 @@ class AegisCore:
         self.registry.register("project_runtime", self.project_runtime)
         self.mission_runtime = MissionRuntime(self, skill_engine=self.skill_engine)
         self.registry.register("mission_runtime", self.mission_runtime)
+        self.orchestrator = ExecutionOrchestratorRuntime(self)
+        self.registry.register("orchestrator", self.orchestrator)
         self.reflection_engine = ReflectionEngineRuntime(self)
         self.registry.register("reflection_engine", self.reflection_engine)
         self.adaptive_planner = AdaptivePlannerRuntime(self)

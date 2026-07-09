@@ -90,11 +90,18 @@ class GoalEngineRuntime:
             priority=int(goal.metadata.get("priority", 50)),
             metadata={"source": "goal_engine"},
         )
-        mission_result = self.mission_runtime.run(mission.id)
+        orchestrator = getattr(self.core, "orchestrator", None)
+        if orchestrator is not None:
+            job = orchestrator.submit_mission(mission.id, priority=mission.priority)
+            mission_result = orchestrator.run_job(job.id)
+        else:
+            job = None
+            mission_result = self.mission_runtime.run(mission.id)
         mission = self.mission_runtime.show(mission.id)
         return {
             "goal": goal,
             "mission": mission,
+            "orchestrator_job": job,
             "mission_result": mission_result,
             "success": mission_result.success,
             "error": mission_result.error,

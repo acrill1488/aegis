@@ -73,6 +73,42 @@ def mission_status(mission_id: str = typer.Argument(..., metavar="ID")):
     console.print_json(data=to_plain(status))
 
 
+@app.command("pause")
+def pause_mission(mission_id: str = typer.Argument(..., metavar="MISSION_ID")):
+    """Pause the Orchestrator job linked to a Mission."""
+    runtime = AegisCore().orchestrator
+    try:
+        job = runtime.pause_mission(mission_id)
+    except KeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print_json(data=to_plain(job))
+
+
+@app.command("resume")
+def resume_mission(mission_id: str = typer.Argument(..., metavar="MISSION_ID")):
+    """Resume the Orchestrator job linked to a Mission."""
+    runtime = AegisCore().orchestrator
+    try:
+        job = runtime.resume_mission(mission_id)
+    except KeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print_json(data=to_plain(job))
+
+
+@app.command("cancel")
+def cancel_mission(mission_id: str = typer.Argument(..., metavar="MISSION_ID")):
+    """Cancel the Orchestrator job linked to a Mission."""
+    runtime = AegisCore().orchestrator
+    try:
+        job = runtime.cancel_mission(mission_id)
+    except KeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print_json(data=to_plain(job))
+
+
 @app.command("timeline")
 def mission_timeline(
     mission_id: str = typer.Argument(..., metavar="MISSION_ID"),
