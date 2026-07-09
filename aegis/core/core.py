@@ -27,6 +27,7 @@ from aegis.executor import ExecutorRuntime
 from aegis.scenarios import ScenarioRuntime
 from aegis.skill_engine import SkillEngineRuntime
 from aegis.goal_engine import GoalEngineRuntime
+from aegis.mission_engine import MissionRuntime
 
 class AegisCore:
     def __init__(self):
@@ -75,7 +76,13 @@ class AegisCore:
         self.registry.register("scenario_runtime", self.scenario_runtime)
         self.skill_engine = SkillEngineRuntime(self)
         self.registry.register("skill_engine", self.skill_engine)
-        self.goal_engine = GoalEngineRuntime(self, skill_engine=self.skill_engine)
+        self.mission_runtime = MissionRuntime(self, skill_engine=self.skill_engine)
+        self.registry.register("mission_runtime", self.mission_runtime)
+        self.goal_engine = GoalEngineRuntime(
+            self,
+            skill_engine=self.skill_engine,
+            mission_runtime=self.mission_runtime,
+        )
         self.registry.register("goal_engine", self.goal_engine)
         self.agent_runtime.register(EchoAgent())
         if platform.system().lower() == "windows":
