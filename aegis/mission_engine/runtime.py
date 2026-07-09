@@ -72,13 +72,15 @@ class MissionRuntime:
     def run(self, mission_or_id: Mission | str) -> MissionResult:
         mission = self._resolve_mission(mission_or_id)
         if mission.status == "cancelled":
-            return MissionResult(
+            result = MissionResult(
                 success=False,
                 completed_nodes=self._completed_nodes(mission),
                 failed_node=None,
                 report_path=str(Path(mission.workspace_path) / "report.md"),
                 error="Mission is cancelled",
             )
+            self._record_mission_experience(mission, result)
+            return result
 
         self._validate_graph(mission.graph)
         mission.status = "running"
@@ -137,7 +139,7 @@ class MissionRuntime:
         self.registry.save(mission)
         report_path = self._write_report(mission, error=error)
         self.registry.save(mission)
-        return MissionResult(
+        result = MissionResult(
             success=success,
             completed_nodes=self._completed_nodes(mission),
             failed_node=failed_node,
@@ -145,6 +147,8 @@ class MissionRuntime:
             error=error,
             metadata={"recovery": recovery},
         )
+        self._record_mission_experience(mission, result)
+        return result
 
     def status(self, mission_id: str) -> dict[str, Any]:
         mission = self._resolve_mission(mission_id)
@@ -226,6 +230,44 @@ class MissionRuntime:
         path.write_text(text, encoding="utf-8")
         return path
 
+    def _record_mission_experience(
+        self,
+        mission: Mission,
+        result: MissionResult,
+    ) -> None:
+        operational_memory = getattr(self.core, "operational_memory", None)
+        record = getattr(operational_memory, "record", None)
+        if not callable(record):
+            return
+        try:
+            record(
+                {
+                    "type": "mission.success" if result.success else "mission.failure",
+                    "source": mission.id,
+                    "summary": f"Mission {mission.id} {'succeeded' if result.success else 'failed'}",
+                    "confidence": 1.0,
+                    "data": {
+                        "mission_id": mission.id,
+                        "goal": mission.goal,
+                        "project_id": mission.metadata.get("project_id"),
+                        "duration": self._duration_seconds(
+                            mission.started_at,
+                            mission.completed_at,
+                        ),
+                        "skill_ids": [node.skill_id for node in mission.graph],
+                        "report_path": result.report_path,
+                    },
+                    "metadata": {
+                        "failed_node": result.failed_node,
+                        "error": result.error,
+                        "completed_nodes": result.completed_nodes,
+                        "recovery": to_plain(result.metadata.get("recovery") or []),
+                    },
+                }
+            )
+        except Exception:
+            return
+
     def _validate_graph(self, graph: list[MissionNode]) -> None:
         node_ids = {node.id for node in graph}
         if len(node_ids) != len(graph):
@@ -274,6 +316,15 @@ class MissionRuntime:
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
+
+    def _duration_seconds(
+        self,
+        started_at: datetime | None,
+        completed_at: datetime | None,
+    ) -> float | None:
+        if started_at is None or completed_at is None:
+            return None
+        return (completed_at - started_at).total_seconds()
 
     def _active_project(self):
         project_runtime = getattr(self.core, "project_runtime", None)

@@ -30,6 +30,8 @@ from aegis.goal_engine import GoalEngineRuntime
 from aegis.mission_engine import MissionRuntime
 from aegis.project_runtime import ProjectRuntime
 from aegis.recovery_engine import RecoveryEngineRuntime
+from aegis.operational_memory import OperationalMemoryRuntime
+from aegis.reflection_engine import ReflectionEngineRuntime
 
 class AegisCore:
     def __init__(self):
@@ -76,6 +78,8 @@ class AegisCore:
         self.registry.register("task_planning_runtime", self.task_planning_runtime)
         self.scenario_runtime = ScenarioRuntime(self)
         self.registry.register("scenario_runtime", self.scenario_runtime)
+        self.operational_memory = OperationalMemoryRuntime(self)
+        self.registry.register("operational_memory", self.operational_memory)
         self.recovery_engine = RecoveryEngineRuntime(self)
         self.registry.register("recovery_engine", self.recovery_engine)
         self.skill_engine = SkillEngineRuntime(self)
@@ -84,6 +88,8 @@ class AegisCore:
         self.registry.register("project_runtime", self.project_runtime)
         self.mission_runtime = MissionRuntime(self, skill_engine=self.skill_engine)
         self.registry.register("mission_runtime", self.mission_runtime)
+        self.reflection_engine = ReflectionEngineRuntime(self)
+        self.registry.register("reflection_engine", self.reflection_engine)
         self.goal_engine = GoalEngineRuntime(
             self,
             skill_engine=self.skill_engine,

@@ -77,6 +77,16 @@ class RecoveryEngineRuntime:
                 **dict(context.get("attempt_metadata") or {}),
             },
         )
+        if not decision.should_retry:
+            self._record_operational_recovery(
+                type="recovery.failure",
+                source=action,
+                summary=f"Recovery failed for {action}",
+                error=str(error),
+                strategy=decision.strategy,
+                decision=decision,
+                metadata={"stage": "decision"},
+            )
         return decision
 
     def record_attempt(
@@ -142,6 +152,39 @@ class RecoveryEngineRuntime:
             json.dumps(history, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+    def _record_operational_recovery(
+        self,
+        *,
+        type: str,
+        source: str,
+        summary: str,
+        error: str,
+        strategy: str,
+        decision: RecoveryDecision,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        operational_memory = getattr(self.core, "operational_memory", None)
+        record = getattr(operational_memory, "record", None)
+        if not callable(record):
+            return
+        try:
+            record(
+                {
+                    "type": type,
+                    "source": source,
+                    "summary": summary,
+                    "confidence": 1.0,
+                    "data": {
+                        "error": error,
+                        "strategy": strategy,
+                        "decision": to_plain(decision),
+                    },
+                    "metadata": metadata or {},
+                }
+            )
+        except Exception:
+            return
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)

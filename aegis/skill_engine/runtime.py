@@ -140,7 +140,7 @@ class SkillEngineRuntime:
             for result in node_results
             if result.get("metadata", {}).get("recovery")
         ]
-        return SkillRunResult(
+        result = SkillRunResult(
             skill_id=skill.id,
             success=success,
             started_at=started_at,
@@ -154,6 +154,8 @@ class SkillEngineRuntime:
                 "recovery": recovery,
             },
         )
+        self._record_skill_experience(result)
+        return result
 
     def _run_node(
         self,
@@ -248,11 +250,26 @@ class SkillEngineRuntime:
             except Exception as retry_exc:
                 recovery_metadata["retry_success"] = False
                 recovery_metadata["retry_error"] = str(retry_exc)
+                self._record_recovery_experience(
+                    node=node,
+                    original_payload=payload,
+                    error=str(exc),
+                    decision=decision,
+                    retry_success=False,
+                    retry_error=str(retry_exc),
+                )
                 raise _RecoveredActionError(
                     str(retry_exc),
                     recovery_metadata,
                 ) from exc
             recovery_metadata["retry_success"] = True
+            self._record_recovery_experience(
+                node=node,
+                original_payload=payload,
+                error=str(exc),
+                decision=decision,
+                retry_success=True,
+            )
             return output, recovery_metadata
 
     def _validate_action_payload(self, action: str, payload: dict[str, Any]) -> None:
@@ -384,6 +401,113 @@ class SkillEngineRuntime:
             "metadata": metadata,
         }
 
+    def _record_skill_experience(self, result: SkillRunResult) -> None:
+        operational_memory = getattr(self.core, "operational_memory", None)
+        record = getattr(operational_memory, "record", None)
+        if not callable(record):
+            return
+        failed_node = None
+        for node_result in result.node_results:
+            if not node_result.get("success"):
+                failed_node = node_result.get("node_id")
+                break
+        try:
+            record(
+                {
+                    "type": "skill.success" if result.success else "skill.failure",
+                    "source": result.skill_id,
+                    "summary": f"Skill {result.skill_id} {'succeeded' if result.success else 'failed'}",
+                    "confidence": 1.0,
+                    "data": {
+                        "skill_id": result.skill_id,
+                        "duration": self._duration_seconds(
+                            result.started_at,
+                            result.completed_at,
+                        ),
+                        "failed_node": failed_node,
+                        "error": result.error,
+                    },
+                    "metadata": {
+                        "dry_run": result.metadata.get("dry_run"),
+                        "recovery": to_plain(result.metadata.get("recovery") or []),
+                    },
+                }
+            )
+        except Exception:
+            return
+
+    def _record_recovery_experience(
+        self,
+        *,
+        node: SkillNode,
+        original_payload: dict[str, Any],
+        error: str,
+        decision,
+        retry_success: bool,
+        retry_error: str | None = None,
+    ) -> None:
+        operational_memory = getattr(self.core, "operational_memory", None)
+        record = getattr(operational_memory, "record", None)
+        if not callable(record):
+            return
+        source = node.action
+        patched_payload = decision.patched_payload
+        locate_payload = (decision.metadata or {}).get("locate_payload") or {}
+        try:
+            if (
+                retry_success
+                and decision.strategy == "browser_relocate"
+                and original_payload.get("selector") != patched_payload.get("selector")
+            ):
+                record(
+                    {
+                        "type": "recovery.selector_patch",
+                        "source": source,
+                        "summary": f"Recovered selector for {source}",
+                        "confidence": 1.0,
+                        "data": {
+                            "action": node.action,
+                            "old_selector": original_payload.get("selector"),
+                            "new_selector": patched_payload.get("selector"),
+                            "query": locate_payload.get("query")
+                            or node.metadata.get("query")
+                            or original_payload.get("query"),
+                            "role": locate_payload.get("role")
+                            or node.metadata.get("role")
+                            or original_payload.get("role"),
+                            "error": error,
+                            "strategy": decision.strategy,
+                        },
+                        "metadata": {
+                            "node_id": node.id,
+                            "node_type": node.type,
+                            "reason": decision.reason,
+                        },
+                    }
+                )
+            record(
+                {
+                    "type": "recovery.success" if retry_success else "recovery.failure",
+                    "source": source,
+                    "summary": f"Recovery {'succeeded' if retry_success else 'failed'} for {source}",
+                    "confidence": 1.0,
+                    "data": {
+                        "error": error,
+                        "retry_error": retry_error,
+                        "strategy": decision.strategy,
+                        "old_payload": to_plain(original_payload),
+                        "patched_payload": to_plain(patched_payload),
+                    },
+                    "metadata": {
+                        "stage": "retry",
+                        "node_id": node.id,
+                        "reason": decision.reason,
+                    },
+                }
+            )
+        except Exception:
+            return
+
     def _get_skill(self, skill_id: str) -> Skill:
         skill = self.skills.get(skill_id)
         if skill is None:
@@ -392,6 +516,9 @@ class SkillEngineRuntime:
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
+
+    def _duration_seconds(self, started_at: datetime, completed_at: datetime) -> float:
+        return (completed_at - started_at).total_seconds()
 
     def _flatten_text(self, value: Any) -> str:
         plain = to_plain(value)

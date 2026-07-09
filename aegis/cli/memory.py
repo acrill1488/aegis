@@ -1,9 +1,11 @@
 import typer
 from rich.console import Console
+from rich.json import JSON
 from rich.table import Table
 
 from aegis.core.core import AegisCore
 from aegis.memory.manager import MemoryManager
+from aegis.serialization import to_plain
 
 app = typer.Typer()
 console = Console()
@@ -38,54 +40,84 @@ def add(
 
 
 @app.command("list")
-def list_records():
-    """List all memory records."""
-    manager = MemoryManager()
-    records = manager.list()
+def list_records(
+    type: str | None = typer.Option(None, "--type", "-t"),
+    source: str | None = typer.Option(None, "--source", "-s"),
+    limit: int = typer.Option(50, "--limit", "-n"),
+):
+    """List operational memory experiences."""
+    records = AegisCore().operational_memory.list(
+        type=type,
+        source=source,
+        limit=limit,
+    )
 
     if not records:
-        console.print("[yellow]No memory records found.[/yellow]")
+        console.print("[yellow]No operational memory records found.[/yellow]")
         return
 
-    table = Table(title="Memory Records")
+    table = Table(title="Operational Memory")
     table.add_column("ID")
-    table.add_column("Title")
     table.add_column("Type")
-    table.add_column("Tags")
+    table.add_column("Source")
+    table.add_column("Created")
+    table.add_column("Summary")
 
     for record in records:
         table.add_row(
             record.id,
-            record.title,
             record.type,
-            ", ".join(record.tags),
+            record.source,
+            record.created_at.isoformat(),
+            record.summary,
         )
 
     console.print(table)
 
 
 @app.command()
-def search(query: str):
-    """Search memory records."""
-    manager = MemoryManager()
-    records = manager.search(query)
+def search(
+    query: str = typer.Argument(..., metavar="TEXT"),
+    type: str | None = typer.Option(None, "--type", "-t"),
+    source: str | None = typer.Option(None, "--source", "-s"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """Search operational memory experiences."""
+    records = AegisCore().operational_memory.search(
+        query,
+        type=type,
+        source=source,
+        limit=limit,
+    )
 
     if not records:
-        console.print("[yellow]No matching memory records found.[/yellow]")
+        console.print("[yellow]No matching operational memory records found.[/yellow]")
         return
 
-    table = Table(title="Memory Search Results")
+    table = Table(title="Operational Memory Search Results")
     table.add_column("ID")
-    table.add_column("Title")
     table.add_column("Type")
-    table.add_column("Preview")
+    table.add_column("Source")
+    table.add_column("Summary")
 
     for record in records:
-        preview = record.content[:120] + ("..." if len(record.content) > 120 else "")
-        table.add_row(record.id, record.title, record.type, preview)
+        table.add_row(record.id, record.type, record.source, record.summary)
 
     console.print(table)
-    console.print("[yellow]Use: aegis memory show <ID> to view full content.[/yellow]")
+
+
+@app.command()
+def stats():
+    """Show operational memory statistics."""
+    console.print(JSON.from_data(to_plain(AegisCore().operational_memory.stats())))
+
+
+@app.command()
+def clear(type: str | None = typer.Option(None, "--type", "-t")):
+    """Clear operational memory records, optionally by type."""
+    removed = AegisCore().operational_memory.clear(type=type)
+    scope = f"type {type}" if type else "all types"
+    console.print(f"[green]Removed {removed} operational memory record(s) for {scope}.[/green]")
 
 
 @app.command()
