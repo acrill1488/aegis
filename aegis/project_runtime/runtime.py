@@ -90,13 +90,20 @@ class ProjectRuntime:
             project.mission_ids.append(mission_id)
         return self.registry.save(project)
 
-    def add_artifact(self, project_id: str, type: str, path: str) -> ProjectArtifact:
+    def add_artifact(
+        self,
+        project_id: str,
+        type: str,
+        path: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> ProjectArtifact:
         self.show(project_id)
         artifact = ProjectArtifact(
             id=self._new_artifact_id(),
             project_id=project_id,
             type=type,
             path=path,
+            metadata=dict(metadata or {}),
         )
         return self.registry.save_artifact(artifact)
 
