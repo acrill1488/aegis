@@ -19,6 +19,7 @@ from aegis.live import ContextStore
 from aegis.agents.runtime import AgentRuntime, EchoAgent
 from aegis.capabilities import CapabilityRuntime
 from aegis.distributed import MachineRegistry
+from aegis.planning import TaskPlanningRuntime
 
 class AegisCore:
     def __init__(self):
@@ -48,6 +49,8 @@ class AegisCore:
         self.registry.register("agent_runtime", self.agent_runtime)
         self.capability_runtime = CapabilityRuntime(self)
         self.registry.register("capability_runtime", self.capability_runtime)
+        self.task_planning_runtime = TaskPlanningRuntime()
+        self.registry.register("task_planning_runtime", self.task_planning_runtime)
         self.agent_runtime.register(EchoAgent())
         if platform.system().lower() == "windows":
             from aegis.agents.windows import WindowsAgent

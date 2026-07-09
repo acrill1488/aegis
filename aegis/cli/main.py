@@ -48,6 +48,7 @@ from .distributed import app as distributed_app
 from .models_registry import app as models_registry_app
 from .model_runtime import app as model_runtime_app
 from .capabilities import app as capabilities_app
+from .planning import app as planning_app
 
 app = typer.Typer()
 console = Console()
@@ -77,6 +78,7 @@ app.add_typer(distributed_app, name="distributed", help="Distributed runtime com
 app.add_typer(models_registry_app, name="model-registry", help="Model Registry commands")
 app.add_typer(model_runtime_app, name="model-runtime", help="Model Runtime commands")
 app.add_typer(capabilities_app, name="capabilities", help="Capability Runtime commands")
+app.add_typer(planning_app, name="planning", help="Task Planning Runtime commands")
 
 @app.command("execute")
 def execute_command(
