@@ -9,6 +9,7 @@ from .models import (
     CapabilityInvocationRequest,
     CapabilityInvocationResult,
 )
+from .discovery import discover_capabilities
 from .registry import CapabilityRegistry
 from .router import CapabilityRouter
 
@@ -88,38 +89,15 @@ class CapabilityRuntime:
     def find_by_tag(self, tag: str) -> list[CapabilityDescriptor]:
         return self.registry.find_by_tag(tag)
 
-    def register_agent_capabilities(self) -> None:
+    def register_agent_capabilities(self, agent: Any | None = None) -> None:
         agent_runtime = getattr(self.core, "agent_runtime", None)
-        if agent_runtime is None:
+        if agent is None and agent_runtime is None:
             return
 
-        for agent in agent_runtime.list():
-            for capability in agent.capabilities:
-                metadata = dict(capability.metadata)
-                descriptor = CapabilityDescriptor(
-                    id=capability.id,
-                    name=capability.id,
-                    version=capability.version,
-                    owner_agent=agent.id,
-                    machine_scope=metadata.get("machine_scope", "local"),
-                    permissions=list(capability.permissions),
-                    input_schema=dict(metadata.get("input_schema", {})),
-                    output_schema=dict(metadata.get("output_schema", {})),
-                    tags=list(metadata.get("tags", [])),
-                    metadata={
-                        **metadata,
-                        "description": capability.description,
-                        "side_effects": list(capability.side_effects),
-                    },
-                )
-                self.register(
-                    descriptor,
-                    {
-                        "type": "agent",
-                        "agent_id": agent.id,
-                        "capability_id": capability.id,
-                    },
-                )
+        agents = [agent] if agent is not None else agent_runtime.list()
+        for discovered_agent in agents:
+            for discovered in discover_capabilities(discovered_agent):
+                self.register(discovered.descriptor, discovered.provider_handle)
 
     def _publish_result(
         self,

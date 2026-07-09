@@ -4,11 +4,18 @@ from datetime import datetime
 from aegis.agents.runtime import (
     AgentCapability,
     AgentDescriptor,
+    AgentRuntime,
+    BaseAgent,
     AgentHealth,
     AgentHealthState,
     AgentInvocationResult,
 )
-from aegis.capabilities import CapabilityInvocationRequest, CapabilityRuntime
+from aegis.capabilities import (
+    CapabilityInvocationRequest,
+    CapabilityRuntime,
+    capability,
+    discover_capabilities,
+)
 
 
 WINDOWS_CAPABILITIES = {
@@ -79,6 +86,30 @@ class FakeCore:
         self.events = None
 
 
+class DecoratedAgent(BaseAgent):
+    def __init__(self):
+        self.descriptor = AgentDescriptor(
+            id="decorated-agent",
+            name="Decorated Agent",
+            version="1",
+            machine_id="test-machine",
+            capabilities=[],
+            health=AgentHealth(AgentHealthState.healthy),
+        )
+
+    @capability(
+        "demo.echo",
+        name="Demo Echo",
+        permissions=["demo.echo"],
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+        tags=["demo"],
+        metadata={"sensitivity": "test"},
+    )
+    def echo(self, payload):
+        return {"echo": payload}
+
+
 def test_register_agent_capabilities_includes_windows_agent_capabilities():
     runtime = CapabilityRuntime(FakeCore())
     runtime.register_agent_capabilities()
@@ -111,3 +142,38 @@ def test_agent_backed_invoke_returns_json_safe_plain_output():
     assert result.metadata == {"handled_at": "2026-07-09T12:31:00"}
     assert result.selected_route["provider_handle"]["agent_id"] == "windows-agent"
     assert core.agent_runtime.invocations[0][1].capability_id == "windows.context.snapshot"
+
+
+def test_discover_capabilities_finds_decorated_agent_method():
+    discovered = discover_capabilities(DecoratedAgent())
+    descriptors = {item.descriptor.id: item for item in discovered}
+
+    assert "demo.echo" in descriptors
+    assert descriptors["demo.echo"].descriptor.name == "Demo Echo"
+    assert descriptors["demo.echo"].descriptor.owner_agent == "decorated-agent"
+    assert descriptors["demo.echo"].descriptor.permissions == ["demo.echo"]
+    assert descriptors["demo.echo"].provider_handle["handler_name"] == "echo"
+
+
+def test_agent_runtime_automatically_registers_decorated_capabilities():
+    class Core:
+        events = None
+
+    core = Core()
+    core.agent_runtime = AgentRuntime(core)
+    core.capability_runtime = CapabilityRuntime(core)
+
+    core.agent_runtime.register(DecoratedAgent())
+
+    descriptors = {descriptor.id: descriptor for descriptor in core.capability_runtime.list()}
+    assert descriptors["demo.echo"].metadata["sensitivity"] == "test"
+
+    result = core.capability_runtime.invoke(
+        CapabilityInvocationRequest(
+            capability_id="demo.echo",
+            payload={"message": "hello"},
+        )
+    )
+
+    assert result.success is True
+    assert result.output == {"echo": {"message": "hello"}}

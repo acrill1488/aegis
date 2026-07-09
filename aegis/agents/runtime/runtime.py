@@ -22,6 +22,9 @@ class AgentRuntime:
     def register(self, agent: BaseAgent) -> AgentDescriptor:
         descriptor = self.registry.register(agent)
         self._publish("agent.registered", descriptor.id, {"agent": descriptor})
+        capability_runtime = getattr(self.core, "capability_runtime", None)
+        if capability_runtime is not None:
+            capability_runtime.register_agent_capabilities(agent)
         return descriptor
 
     def start(self, agent_id: str) -> AgentDescriptor:
@@ -93,6 +96,11 @@ class AgentRuntime:
 
         try:
             result = agent.invoke(invocation)
+            if (
+                result.success is False
+                and result.error == "Capability not implemented"
+            ):
+                result = self._invoke_discovered_handler(agent, invocation)
         except Exception as exc:
             agent.descriptor.status = AgentStatus.failed
             result = AgentInvocationResult(success=False, error=str(exc))
@@ -130,6 +138,29 @@ class AgentRuntime:
             trace_id=invocation.trace_id,
         )
         return result
+
+    def _invoke_discovered_handler(
+        self,
+        agent: BaseAgent,
+        invocation: AgentInvocation,
+    ) -> AgentInvocationResult:
+        from aegis.capabilities.discovery import get_capability_handler
+
+        handler = get_capability_handler(agent, invocation.capability_id)
+        if handler is None:
+            return AgentInvocationResult(
+                success=False,
+                error="Capability not implemented",
+                metadata={"capability_id": invocation.capability_id},
+            )
+
+        result = handler(invocation.payload)
+        if isinstance(result, AgentInvocationResult):
+            return result
+        return AgentInvocationResult(
+            success=True,
+            output=result if isinstance(result, dict) else {"result": result},
+        )
 
     def _require_agent(self, agent_id: str) -> BaseAgent:
         agent = self.registry.get(agent_id)
