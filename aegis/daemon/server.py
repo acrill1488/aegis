@@ -9,8 +9,11 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from aegis.agents.browser import BrowserService
 from aegis.agents.windows import ProcessWatcher, SystemWatcher
 from aegis.core.core import AegisCore
+from aegis.ipc import IPCRequest, IPCServer
+from aegis.services import ServiceStatus
 
 
 class AskRequest(BaseModel):
@@ -68,6 +71,96 @@ def create_app() -> FastAPI:
         return [_serialize(event) for event in core.events.history()]
 
     return app
+
+
+class DaemonRuntime:
+    """Foreground daemon runtime that owns local services and IPC routing."""
+
+    def __init__(self, *, headless_browser: bool = False):
+        self.core = AegisCore()
+        self.browser_service = BrowserService(headless=headless_browser)
+        self.core.service_runtime.register(self.browser_service)
+        _start_default_scheduler_tasks(self.core)
+
+    def handle_ipc(self, request: IPCRequest) -> Any:
+        if request.target == "browser":
+            return self._handle_browser(request.action, request.payload)
+        if request.target == "ui":
+            return self._handle_ui(request.action, request.payload)
+        if request.target == "health":
+            return self._health()
+        if request.target == "services":
+            return self._services(request.action)
+        raise ValueError(f"Unsupported IPC target: {request.target}")
+
+    def stop(self) -> None:
+        try:
+            if self.browser_service.status not in {
+                ServiceStatus.stopped,
+                ServiceStatus.stopping,
+            }:
+                self.core.service_runtime.stop(self.browser_service.id)
+        finally:
+            try:
+                self.core.scheduler.stop()
+            except Exception:
+                return
+
+    def _handle_browser(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if action == "status":
+            return self.browser_service.health()
+        if action != "close" and self.browser_service.status != ServiceStatus.running:
+            self.core.service_runtime.start(self.browser_service.id)
+        return self.browser_service.invoke(action, payload)
+
+    def _handle_ui(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if self.browser_service.status != ServiceStatus.running:
+            self.core.service_runtime.start(self.browser_service.id)
+        if action == "observe":
+            return _serialize(self.core.ui_intelligence.observe(payload))
+        if action == "describe":
+            return _serialize(self.core.ui_intelligence.describe(payload))
+        if action == "locate":
+            return _serialize(self.core.ui_intelligence.locate(payload))
+        mapping = {
+            "tree": "ui_tree",
+        }
+        browser_action = mapping.get(action)
+        if browser_action is None:
+            raise ValueError(f"Unsupported UI Runtime action: {action}")
+        return self.browser_service.invoke(browser_action, payload)
+
+    def _health(self) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "version": _version(),
+            "services": {
+                "count": len(self.core.service_runtime.list()),
+                "browser": self.browser_service.health(),
+            },
+        }
+
+    def _services(self, action: str) -> list[dict[str, Any]]:
+        if action not in {"list", "status"}:
+            raise ValueError(f"Unsupported services action: {action}")
+        return self.core.service_runtime.list()
+
+
+def serve_ipc(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8787,
+    headless_browser: bool = False,
+    on_ready: Any | None = None,
+) -> None:
+    runtime = DaemonRuntime(headless_browser=headless_browser)
+    server = IPCServer(host=host, port=port, handler=runtime.handle_ipc)
+    try:
+        if on_ready is not None:
+            on_ready()
+        server.serve_forever()
+    finally:
+        runtime.stop()
 
 
 def _core(app: FastAPI) -> AegisCore:

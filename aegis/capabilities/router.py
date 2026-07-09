@@ -43,6 +43,8 @@ class CapabilityRouter:
 
         if provider_type == "agent":
             return self._invoke_agent(route, provider_handle, request)
+        if provider_type == "runtime":
+            return self._invoke_runtime(route, provider_handle, request)
 
         return CapabilityInvocationResult(
             success=False,
@@ -82,4 +84,46 @@ class CapabilityRouter:
             error=agent_result.error,
             selected_route=to_plain(route),
             metadata=to_plain(agent_result.metadata),
+        )
+
+    def _invoke_runtime(
+        self,
+        route: dict,
+        provider_handle: dict,
+        request: CapabilityInvocationRequest,
+    ) -> CapabilityInvocationResult:
+        runtime_name = provider_handle.get("runtime")
+        method_name = provider_handle.get("method")
+        if not runtime_name or not method_name:
+            return CapabilityInvocationResult(
+                success=False,
+                capability_id=request.capability_id,
+                error="Runtime provider handle is missing runtime or method",
+                selected_route=route,
+            )
+
+        runtime = self.core.registry.get(runtime_name)
+        if runtime is None:
+            return CapabilityInvocationResult(
+                success=False,
+                capability_id=request.capability_id,
+                error=f"Runtime not found: {runtime_name}",
+                selected_route=route,
+            )
+
+        handler = getattr(runtime, str(method_name), None)
+        if not callable(handler):
+            return CapabilityInvocationResult(
+                success=False,
+                capability_id=request.capability_id,
+                error=f"Runtime method not found: {runtime_name}.{method_name}",
+                selected_route=route,
+            )
+
+        output = handler(request.payload)
+        return CapabilityInvocationResult(
+            success=True,
+            capability_id=request.capability_id,
+            output=to_plain(output),
+            selected_route=to_plain(route),
         )

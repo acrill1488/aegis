@@ -21,6 +21,8 @@ from aegis.capabilities import CapabilityRuntime
 from aegis.distributed import MachineRegistry
 from aegis.mcp_runtime import MCPRuntime
 from aegis.planning import TaskPlanningRuntime
+from aegis.services import ServiceRuntime
+from aegis.ui_intelligence import UIIntelligenceRuntime
 
 class AegisCore:
     def __init__(self):
@@ -48,8 +50,12 @@ class AegisCore:
         self.registry.register("model_runtime", self.model_runtime)
         self.agent_runtime = AgentRuntime(self)
         self.registry.register("agent_runtime", self.agent_runtime)
+        self.service_runtime = ServiceRuntime(self)
+        self.registry.register("service_runtime", self.service_runtime)
         self.capability_runtime = CapabilityRuntime(self)
         self.registry.register("capability_runtime", self.capability_runtime)
+        self.ui_intelligence = UIIntelligenceRuntime(self)
+        self.registry.register("ui_intelligence", self.ui_intelligence)
         self.mcp_runtime = MCPRuntime(self)
         self.registry.register("mcp_runtime", self.mcp_runtime)
         self.task_planning_runtime = TaskPlanningRuntime(
@@ -65,6 +71,7 @@ class AegisCore:
 
         self.agent_runtime.register(BrowserAgent(self))
         self.capability_runtime.register_agent_capabilities()
+        self.ui_intelligence.register_capabilities()
         self.mcp_runtime.auto_discover_enabled()
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()
