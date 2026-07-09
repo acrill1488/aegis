@@ -50,6 +50,7 @@ from .model_runtime import app as model_runtime_app
 from .capabilities import app as capabilities_app
 from .planning import app as planning_app
 from .browser import app as browser_app
+from .mcp_runtime import app as mcp_runtime_app
 
 app = typer.Typer()
 console = Console()
@@ -81,6 +82,7 @@ app.add_typer(model_runtime_app, name="model-runtime", help="Model Runtime comma
 app.add_typer(capabilities_app, name="capabilities", help="Capability Runtime commands")
 app.add_typer(planning_app, name="planning", help="Task Planning Runtime commands")
 app.add_typer(browser_app, name="browser", help="Browser Runtime commands")
+app.add_typer(mcp_runtime_app, name="mcp", help="MCP Runtime commands")
 
 @app.command("execute")
 def execute_command(
