@@ -11,17 +11,25 @@ from .models import Mission, MissionNode
 
 
 DEFAULT_MISSION_ROOT = Path(r"F:\AI_WORKSPACE\missions")
+DEFAULT_PROJECT_ROOT = Path(r"F:\AI_WORKSPACE\projects")
 
 
 class MissionRegistry:
     """File-backed registry for Mission workspaces."""
 
-    def __init__(self, root: str | Path = DEFAULT_MISSION_ROOT):
+    def __init__(
+        self,
+        root: str | Path = DEFAULT_MISSION_ROOT,
+        *,
+        project_root: str | Path = DEFAULT_PROJECT_ROOT,
+    ):
         self.root = Path(root)
+        self.project_root = Path(project_root)
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def allocate_workspace(self, mission_id: str) -> Path:
-        workspace = self.root / mission_id
+    def allocate_workspace(self, mission_id: str, base_dir: str | Path | None = None) -> Path:
+        root = Path(base_dir) if base_dir is not None else self.root
+        workspace = root / mission_id
         for child in ("logs", "outputs", "screenshots", "downloads"):
             (workspace / child).mkdir(parents=True, exist_ok=True)
         return workspace
@@ -29,7 +37,8 @@ class MissionRegistry:
     def save(self, mission: Mission) -> Mission:
         workspace = Path(mission.workspace_path) if mission.workspace_path else self.allocate_workspace(mission.id)
         mission.workspace_path = str(workspace)
-        self.allocate_workspace(mission.id)
+        for child in ("logs", "outputs", "screenshots", "downloads"):
+            (workspace / child).mkdir(parents=True, exist_ok=True)
         self._write_json(workspace / "mission.json", mission)
         self._write_json(workspace / "graph.json", {"nodes": mission.graph})
         goal = mission.metadata.get("goal", mission.goal)
@@ -40,9 +49,21 @@ class MissionRegistry:
         return mission
 
     def get(self, mission_id: str) -> Mission | None:
+        path = self._mission_path(mission_id)
+        if path is None:
+            return None
+        return self._load_path(path)
+
+    def _mission_path(self, mission_id: str) -> Path | None:
         path = self.root / mission_id / "mission.json"
         if not path.exists():
-            return None
+            project_path = self.project_root.glob(f"project_*/missions/{mission_id}/mission.json")
+            path = next(project_path, None)
+            if path is None:
+                return None
+        return path
+
+    def _load_path(self, path: Path) -> Mission | None:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -55,14 +76,17 @@ class MissionRegistry:
             return None
 
     def list(self) -> list[Mission]:
-        missions = []
-        for path in sorted(self.root.glob("mission_*/mission.json")):
-            mission = self.get(path.parent.name)
+        missions = {}
+        paths = list(self.root.glob("mission_*/mission.json"))
+        paths.extend(self.project_root.glob("project_*/missions/mission_*/mission.json"))
+        for path in sorted(paths):
+            mission = self._load_path(path)
             if mission is not None:
-                missions.append(mission)
-        return missions
+                missions[mission.id] = mission
+        return [missions[key] for key in sorted(missions)]
 
     def _write_json(self, path: Path, value: Any) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             json.dumps(to_plain(value), ensure_ascii=False, indent=2),
             encoding="utf-8",

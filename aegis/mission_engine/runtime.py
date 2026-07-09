@@ -38,9 +38,13 @@ class MissionRuntime:
         priority: int = 50,
         metadata: dict[str, Any] | None = None,
     ) -> Mission:
+        metadata = dict(metadata or {})
+        active_project = self._active_project()
         if isinstance(goal, Goal):
             mission_id = self.planner._new_id()
-            workspace = self.registry.allocate_workspace(mission_id)
+            workspace = self._mission_workspace(mission_id, active_project)
+            if active_project is not None:
+                metadata["project_id"] = active_project.id
             mission = self.planner.create_from_goal(
                 goal,
                 priority=priority,
@@ -50,15 +54,20 @@ class MissionRuntime:
             )
         else:
             mission_id = self.planner._new_id()
-            workspace = self.registry.allocate_workspace(mission_id)
+            workspace = self._mission_workspace(mission_id, active_project)
+            if active_project is not None:
+                metadata["project_id"] = active_project.id
             mission = Mission(
                 id=mission_id,
                 goal=str(goal),
                 priority=priority,
                 workspace_path=str(workspace),
-                metadata=dict(metadata or {}),
+                metadata=metadata,
             )
-        return self.registry.save(mission)
+        mission = self.registry.save(mission)
+        if active_project is not None:
+            self.core.project_runtime.add_mission(active_project.id, mission.id)
+        return mission
 
     def run(self, mission_or_id: Mission | str) -> MissionResult:
         mission = self._resolve_mission(mission_or_id)
@@ -251,3 +260,14 @@ class MissionRuntime:
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
+
+    def _active_project(self):
+        project_runtime = getattr(self.core, "project_runtime", None)
+        if project_runtime is None:
+            return None
+        return project_runtime.get_active()
+
+    def _mission_workspace(self, mission_id: str, active_project) -> Path:
+        if active_project is None:
+            return self.registry.allocate_workspace(mission_id)
+        return self.core.project_runtime.mission_workspace(active_project.id, mission_id)

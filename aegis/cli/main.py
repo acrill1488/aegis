@@ -58,6 +58,7 @@ from .ui import app as ui_app
 from .scenario import app as scenario_app
 from .skill_engine import app as skill_engine_app
 from .mission import app as mission_app
+from .project import app as project_app
 
 app = typer.Typer()
 console = Console()
@@ -95,6 +96,7 @@ app.add_typer(ui_app, name="ui", help="Unified UI Runtime commands")
 app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
 app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
 app.add_typer(mission_app, name="mission", help="Mission Engine commands")
+app.add_typer(project_app, name="project", help="Project Runtime commands")
 
 @app.command("execute")
 def execute_command(
@@ -283,14 +285,11 @@ def ask(
     """Ask AEGIS to resolve and run a natural-language goal."""
     ensure_daemon_running(console)
     core = AegisCore()
-    if capability != "auto" or role != "assistant":
-        response = core.brain.ask(prompt, capability, role)
-        console.print(f"[bold blue]Response:[/bold blue] {response}")
-        return
-
     execution = core.goal_engine.execute(prompt)
     goal = execution["goal"]
     console.print(f"[bold]Goal:[/bold] {goal.text}")
+    console.print(f"[bold]Capability:[/bold] {capability}")
+    console.print(f"[bold]Role:[/bold] {role}")
     console.print(f"[bold]Skill:[/bold] {goal.selected_skill or 'unresolved'}")
     console.print(f"[bold]Inputs:[/bold] {to_plain(goal.inputs)}")
     if not execution["success"] and execution["result"] is None:

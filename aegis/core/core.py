@@ -28,6 +28,7 @@ from aegis.scenarios import ScenarioRuntime
 from aegis.skill_engine import SkillEngineRuntime
 from aegis.goal_engine import GoalEngineRuntime
 from aegis.mission_engine import MissionRuntime
+from aegis.project_runtime import ProjectRuntime
 
 class AegisCore:
     def __init__(self):
@@ -76,6 +77,8 @@ class AegisCore:
         self.registry.register("scenario_runtime", self.scenario_runtime)
         self.skill_engine = SkillEngineRuntime(self)
         self.registry.register("skill_engine", self.skill_engine)
+        self.project_runtime = ProjectRuntime(self)
+        self.registry.register("project_runtime", self.project_runtime)
         self.mission_runtime = MissionRuntime(self, skill_engine=self.skill_engine)
         self.registry.register("mission_runtime", self.mission_runtime)
         self.goal_engine = GoalEngineRuntime(
