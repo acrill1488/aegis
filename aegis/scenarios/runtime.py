@@ -100,6 +100,7 @@ class ScenarioRuntime:
         target, action = self._route(step.action)
         started_at = self._now()
         output = self.ipc_client.request(target, action, step.payload)
+        output = self._normalize_action_output(step.action, step.payload, output)
         completed_at = self._now()
         validation = self.validate_expect(output, step.expect)
         return {
@@ -153,6 +154,32 @@ class ScenarioRuntime:
         if route is None:
             raise ValueError(f"Unsupported scenario action: {action}")
         return route
+
+    def _normalize_action_output(
+        self,
+        action: str,
+        payload: dict[str, Any],
+        output: Any,
+    ) -> Any:
+        if action != "ui.locate" or not isinstance(output, dict):
+            return output
+        role = str(payload.get("role") or "").strip()
+        if not role:
+            return output
+        matches = [
+            match
+            for match in output.get("matches", [])
+            if isinstance(match, dict)
+            and str(match.get("role") or "").casefold() == role.casefold()
+        ]
+        normalized = dict(output)
+        normalized["role"] = role
+        normalized["matches"] = matches
+        normalized["best_match"] = matches[0] if matches else None
+        normalized["possible_actions"] = (
+            matches[0].get("possible_actions", []) if matches else []
+        )
+        return normalized
 
     def _save_report(self, result: ScenarioRunResult) -> Path:
         path = self._report_path(result.scenario_id, result.started_at)

@@ -118,3 +118,49 @@ def test_scenario_expect_validators():
     )
 
     assert validation == {"success": True, "errors": []}
+
+
+def test_scenario_runtime_filters_ui_locate_output_by_role(tmp_path):
+    registry = ScenarioRegistry()
+    registry.register(
+        Scenario(
+            id="sample",
+            name="Sample",
+            steps=[
+                ScenarioStep(
+                    id="locate",
+                    action="ui.locate",
+                    payload={"query": "search", "role": "textbox"},
+                    expect={"element_exists": True},
+                ),
+            ],
+        )
+    )
+    runtime = ScenarioRuntime(
+        registry=registry,
+        ipc_client=FakeIPCClient(
+            [
+                {
+                    "best_match": {
+                        "role": "button",
+                        "selector": {"type": "text", "value": {"text": "Search"}},
+                    },
+                    "matches": [
+                        {
+                            "role": "button",
+                            "selector": {"type": "text", "value": {"text": "Search"}},
+                        },
+                        {"role": "textbox", "selector": "#searchInput"},
+                    ],
+                }
+            ]
+        ),
+        report_dir=tmp_path,
+    )
+
+    result = runtime.run("sample")
+
+    output = result.step_results[0]["output"]
+    assert result.success is True
+    assert output["best_match"] == {"role": "textbox", "selector": "#searchInput"}
+    assert output["matches"] == [{"role": "textbox", "selector": "#searchInput"}]

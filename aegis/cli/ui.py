@@ -30,14 +30,21 @@ def describe():
 
 
 @app.command("locate")
-def locate(query: str = typer.Argument(..., metavar="QUERY")):
+def locate(
+    query: str = typer.Argument(..., metavar="QUERY"),
+    role: str | None = typer.Option(None, "--role"),
+):
     """Locate elements in the active browser page by visible UI text."""
-    _print_result(_invoke("locate", {"query": query}))
+    payload = {"query": query}
+    if role not in (None, ""):
+        payload["role"] = role
+    _print_result(_invoke("locate", payload))
 
 
 def _invoke(action: str, payload: dict):
     try:
         output = IPCClient().request("ui", action, payload)
+        output = _normalize_output(action, payload, output)
         return output if isinstance(output, dict) else {"result": output}
     except IPCConnectionError as exc:
         _print_error(str(exc))
@@ -49,6 +56,26 @@ def _invoke(action: str, payload: dict):
 
 def _print_result(data: dict) -> None:
     console.print(JSON.from_data(to_plain(data)))
+
+
+def _normalize_output(action: str, payload: dict, output):
+    if action != "locate" or not isinstance(output, dict):
+        return output
+    role = str(payload.get("role") or "").strip()
+    if not role:
+        return output
+    matches = [
+        match
+        for match in output.get("matches", [])
+        if isinstance(match, dict)
+        and str(match.get("role") or "").casefold() == role.casefold()
+    ]
+    normalized = dict(output)
+    normalized["role"] = role
+    normalized["matches"] = matches
+    normalized["best_match"] = matches[0] if matches else None
+    normalized["possible_actions"] = matches[0].get("possible_actions", []) if matches else []
+    return normalized
 
 
 def _print_error(error: str) -> None:

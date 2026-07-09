@@ -37,6 +37,12 @@ class FakeBrowser:
                 "buttons": [
                     {
                         "tag": "button",
+                        "text": "Search",
+                        "selector": "#search-button",
+                        "visible": True,
+                    },
+                    {
+                        "tag": "button",
                         "text": "Submit",
                         "selector": "#submit",
                         "visible": True,
@@ -94,12 +100,13 @@ def test_browser_observation_provider_filters_dom_noise_and_builds_actions():
     roles = [element.role for element in observation.elements]
     names = [element.name for element in observation.elements]
 
-    assert roles == ["textbox", "button", "link", "heading"]
+    assert roles == ["textbox", "button", "button", "link", "heading"]
     assert "Search docs" in names
     assert "Submit" in names
     assert "Current page: Example (https://example.test)" in observation.summary
     assert {"type": "fill", "target": "ui-0", "selector": "#q"} in observation.actions
-    assert {"type": "click", "target": "ui-1", "selector": "#submit"} in observation.actions
+    assert {"type": "click", "target": "ui-1", "selector": "#search-button"} in observation.actions
+    assert {"type": "click", "target": "ui-2", "selector": "#submit"} in observation.actions
 
 
 def test_ui_intelligence_runtime_locates_elements_and_registers_capabilities():
@@ -109,14 +116,24 @@ def test_ui_intelligence_runtime_locates_elements_and_registers_capabilities():
     runtime.register_capabilities()
 
     located = runtime.locate("Search")
+    located_textbox = runtime.locate({"query": "Search", "role": "textbox"})
+    located_textbox_kwarg = runtime.locate("Search", role="textbox")
+    missing_role = runtime.locate({"query": "Search", "role": "combobox"})
     result = core.capability_runtime.invoke(
         CapabilityInvocationRequest(
             capability_id="ui.locate",
-            payload={"query": "Submit"},
+            payload={"query": "Search", "role": "button"},
         )
     )
 
-    assert located["best_match"]["role"] == "textbox"
+    assert located["best_match"]["role"] in {"button", "textbox"}
+    assert located_textbox["best_match"]["role"] == "textbox"
+    assert located_textbox["best_match"]["selector"] == "#q"
+    assert located_textbox_kwarg["best_match"]["role"] == "textbox"
+    assert located_textbox_kwarg["best_match"]["selector"] == "#q"
+    assert missing_role["best_match"] is None
+    assert missing_role["matches"] == []
     assert result.success is True
     assert result.output["best_match"]["role"] == "button"
+    assert result.output["best_match"]["selector"] == "#search-button"
     assert core.capability_runtime.resolve("ui.observe")["provider_type"] == "runtime"

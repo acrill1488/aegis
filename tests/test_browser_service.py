@@ -51,8 +51,8 @@ class FakeProvider:
     def ui_describe(self):
         return {"element_count": 1}
 
-    def ui_locate(self, query):
-        return {"query": query, "best_match": {"name": query}}
+    def ui_locate(self, query, role=None):
+        return {"query": query, "role": role, "best_match": {"name": query}}
 
     def screenshot(self, path=None):
         return {"path": path or "screenshot.png"}
@@ -121,7 +121,7 @@ def test_browser_service_invokes_dom_inspection_actions():
     ui_tree_result = service.invoke("ui_tree", {})
     ui_observe_result = service.invoke("ui_observe", {})
     ui_describe_result = service.invoke("ui_describe", {})
-    ui_locate_result = service.invoke("ui_locate", {"query": "Search"})
+    ui_locate_result = service.invoke("ui_locate", {"query": "Search", "role": "textbox"})
 
     assert inspect_result == {"url": "https://example.test", "inputs": []}
     assert find_result["best_match"] == {"query": {"placeholder": "Search"}}
@@ -131,6 +131,7 @@ def test_browser_service_invokes_dom_inspection_actions():
     assert ui_observe_result["source"] == "browser.dom"
     assert ui_describe_result == {"element_count": 1}
     assert ui_locate_result["best_match"] == {"name": "Search"}
+    assert ui_locate_result["role"] == "textbox"
 
 
 def test_browser_service_client_invokes_http_service(tmp_path):

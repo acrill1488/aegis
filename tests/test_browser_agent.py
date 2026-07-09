@@ -60,8 +60,12 @@ class FakePlaywrightProvider:
     def ui_describe(self):
         return {"element_count": 1, "interactive": []}
 
-    def ui_locate(self, query):
-        return {"query": query, "best_match": {"id": "ui-0.1", "name": query}}
+    def ui_locate(self, query, role=None):
+        return {
+            "query": query,
+            "role": role,
+            "best_match": {"id": "ui-0.1", "name": query, "role": role},
+        }
 
     def screenshot(self, path=None):
         return {"path": path or "F:/AI_WORKSPACE/browser/screenshots/screenshot-test.png"}
@@ -265,7 +269,7 @@ def test_browser_ui_capabilities_invoke_provider_through_runtime():
     locate_result = core.capability_runtime.invoke(
         CapabilityInvocationRequest(
             capability_id="ui.locate",
-            payload={"query": "Search"},
+            payload={"query": "Search", "role": "textbox"},
         )
     )
 
@@ -273,3 +277,4 @@ def test_browser_ui_capabilities_invoke_provider_through_runtime():
     assert tree_result.output["root"]["role"] == "WebArea"
     assert describe_result.output["element_count"] == 1
     assert locate_result.output["best_match"]["name"] == "Search"
+    assert locate_result.output["best_match"]["role"] == "textbox"

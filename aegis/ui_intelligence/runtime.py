@@ -40,23 +40,32 @@ class UIIntelligenceRuntime:
             "metadata": observation.metadata,
         }
 
-    def locate(self, query: str | dict | None = None) -> dict:
+    def locate(self, query: str | dict | None = None, role: str | None = None) -> dict:
         query_text = self._query_text(query)
         if not query_text:
             raise ValueError("ui.locate requires a non-empty query")
+        role = self._role_text(query, role)
         observation = self.observe()
+        elements = observation.elements
+        if role:
+            elements = [
+                element
+                for element in elements
+                if str(element.role or "").casefold() == role.casefold()
+            ]
         matches = [
             {
                 **to_plain(element),
                 "score": self._score(element, query_text),
                 "possible_actions": self._possible_actions(element, observation.actions),
             }
-            for element in observation.elements
+            for element in elements
             if self._score(element, query_text) > 0
         ]
         matches.sort(key=lambda item: item["score"], reverse=True)
         return {
             "query": query_text,
+            "role": role,
             "source": observation.source,
             "url": observation.url,
             "title": observation.title,
@@ -105,7 +114,10 @@ class UIIntelligenceRuntime:
                     input_schema={
                         "type": "object",
                         "required": ["query"],
-                        "properties": {"query": {"type": "string"}},
+                        "properties": {
+                            "query": {"type": "string"},
+                            "role": {"type": "string"},
+                        },
                     },
                     output_schema={"type": "object"},
                     tags=["ui", "locate", "browser"],
@@ -155,6 +167,16 @@ class UIIntelligenceRuntime:
         if isinstance(query, dict):
             query = query.get("query")
         return str(query or "").strip()
+
+    def _role_text(self, query: str | dict | None, role: str | None = None) -> str | None:
+        explicit_role = str(role or "").strip()
+        if explicit_role:
+            return explicit_role
+        if isinstance(query, dict):
+            payload_role = str(query.get("role") or "").strip()
+            if payload_role:
+                return payload_role
+        return None
 
     def _score(self, element: UIElement, query: str) -> int:
         wanted = query.casefold()

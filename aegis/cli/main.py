@@ -54,6 +54,7 @@ from .browser import app as browser_app
 from .mcp_runtime import app as mcp_runtime_app
 from .ui import app as ui_app
 from .scenario import app as scenario_app
+from .skill_engine import app as skill_engine_app
 
 app = typer.Typer()
 console = Console()
@@ -89,6 +90,7 @@ app.add_typer(browser_app, name="browser", help="Browser Runtime commands")
 app.add_typer(mcp_runtime_app, name="mcp", help="MCP Runtime commands")
 app.add_typer(ui_app, name="ui", help="Unified UI Runtime commands")
 app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
+app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
 
 @app.command("execute")
 def execute_command(

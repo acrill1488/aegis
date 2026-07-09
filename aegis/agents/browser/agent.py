@@ -144,7 +144,10 @@ class BrowserAgent(BaseAgent):
                     input_schema={
                         "type": "object",
                         "required": ["query"],
-                        "properties": {"query": {"type": "string"}},
+                        "properties": {
+                            "query": {"type": "string"},
+                            "role": {"type": "string"},
+                        },
                     },
                     tags=["ui", "locate", "accessibility"],
                 ),
@@ -320,7 +323,11 @@ class BrowserAgent(BaseAgent):
         if capability_id == "ui.describe":
             return self.provider.ui_describe()
         if capability_id == "ui.locate":
-            return self.provider.ui_locate(self._required(payload, "query", capability_id))
+            query = self._required(payload, "query", capability_id)
+            role = payload.get("role")
+            if role not in (None, ""):
+                return self.provider.ui_locate(query, role=str(role))
+            return self.provider.ui_locate(query)
         if capability_id == "browser.screenshot":
             path = payload.get("path")
             return self.provider.screenshot(str(path) if path else None)

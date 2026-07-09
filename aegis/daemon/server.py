@@ -121,7 +121,12 @@ class DaemonRuntime:
         if action == "describe":
             return _serialize(self.core.ui_intelligence.describe(payload))
         if action == "locate":
-            return _serialize(self.core.ui_intelligence.locate(payload))
+            return _serialize(
+                self.core.ui_intelligence.locate(
+                    payload.get("query"),
+                    role=payload.get("role"),
+                )
+            )
         mapping = {
             "tree": "ui_tree",
         }

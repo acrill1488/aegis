@@ -146,6 +146,9 @@ class BrowserService(BaseService):
 
     def _ui_locate(self, payload: dict) -> dict:
         query = self._required(payload, "query", "ui_locate")
+        role = payload.get("role")
+        if role not in (None, ""):
+            return self.provider.ui_locate(query, role=str(role))
         return self.provider.ui_locate(query)
 
     def _screenshot(self, payload: dict) -> dict:

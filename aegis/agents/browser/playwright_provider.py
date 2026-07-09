@@ -133,9 +133,17 @@ class PlaywrightProvider:
         observation = BrowserObservationProvider(self).observe()
         return self._observation_description(observation)
 
-    def ui_locate(self, query: str) -> dict:
+    def ui_locate(self, query: str, role: str | None = None) -> dict:
         observation = BrowserObservationProvider(self).observe()
         wanted = str(query or "").casefold()
+        role_filter = str(role or "").strip()
+        elements = observation.elements
+        if role_filter:
+            elements = [
+                element
+                for element in elements
+                if str(element.role or "").casefold() == role_filter.casefold()
+            ]
         matches = [
             {
                 **to_plain(element),
@@ -146,12 +154,13 @@ class PlaywrightProvider:
                     if action.get("target") == element.id
                 ],
             }
-            for element in observation.elements
+            for element in elements
             if self._ui_score(element, wanted) > 0
         ]
         matches.sort(key=lambda item: item["score"], reverse=True)
         return {
             "query": query,
+            "role": role_filter or None,
             "source": observation.source,
             "url": observation.url,
             "title": observation.title,
