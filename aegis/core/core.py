@@ -24,6 +24,7 @@ from aegis.planning import TaskPlanningRuntime
 from aegis.services import ServiceRuntime
 from aegis.ui_intelligence import UIIntelligenceRuntime
 from aegis.executor import ExecutorRuntime
+from aegis.scenarios import ScenarioRuntime
 
 class AegisCore:
     def __init__(self):
@@ -68,6 +69,8 @@ class AegisCore:
             capability_runtime=self.capability_runtime,
         )
         self.registry.register("task_planning_runtime", self.task_planning_runtime)
+        self.scenario_runtime = ScenarioRuntime(self)
+        self.registry.register("scenario_runtime", self.scenario_runtime)
         self.agent_runtime.register(EchoAgent())
         if platform.system().lower() == "windows":
             from aegis.agents.windows import WindowsAgent
