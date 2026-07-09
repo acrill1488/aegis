@@ -1,6 +1,8 @@
 from pathlib import Path
 
+from aegis.recovery_engine import RecoveryEngineRuntime
 from aegis.skill_engine import SkillEngineRuntime, SkillLoader, SkillRegistry
+from aegis.skill_engine.models import Skill, SkillNode
 
 
 DAEMON_NOT_RUNNING = "AEGIS daemon is not running. Start it with: aegis daemon serve"
@@ -180,3 +182,126 @@ def test_skill_runtime_rejects_non_string_fill_selector(tmp_path):
         result.error
         == "browser.fill requires payload.selector to be a non-empty string CSS selector; got dict"
     )
+
+
+def test_skill_runtime_recovers_browser_selector_once(tmp_path):
+    class RecoveringScenarioRuntime:
+        def __init__(self):
+            self.steps = []
+            self.fill_calls = 0
+
+        def run_step(self, step):
+            self.steps.append(step)
+            if step.action == "ui.locate":
+                return {
+                    "step_id": step.id,
+                    "action": step.action,
+                    "success": True,
+                    "payload": step.payload,
+                    "output": {"best_match": {"selector": "#searchInput"}},
+                    "validation": {"success": True, "errors": []},
+                }
+            if step.action == "browser.fill":
+                self.fill_calls += 1
+                if self.fill_calls == 1:
+                    raise RuntimeError("element not found: #missing")
+                return {
+                    "step_id": step.id,
+                    "action": step.action,
+                    "success": True,
+                    "payload": step.payload,
+                    "output": {"success": True, **step.payload},
+                    "validation": {"success": True, "errors": []},
+                }
+            raise AssertionError(step.action)
+
+    registry = SkillRegistry(default_root=tmp_path)
+    registry.register(
+        Skill(
+            id="test.recover.fill",
+            name="Recover Fill",
+            nodes=[
+                SkillNode(
+                    id="fill",
+                    type="action",
+                    action="browser.fill",
+                    payload={"selector": "#missing", "value": "AEGIS"},
+                    metadata={"query": "Search", "role": "textbox"},
+                )
+            ],
+        )
+    )
+    core = FakeCore()
+    core.scenario_runtime = RecoveringScenarioRuntime()
+    core.recovery_engine = RecoveryEngineRuntime(
+        core,
+        history_path=tmp_path / "history.json",
+    )
+    runtime = SkillEngineRuntime(core, registry=registry)
+
+    result = runtime.run("test.recover.fill")
+
+    assert result.success is True
+    assert core.scenario_runtime.fill_calls == 2
+    assert result.node_results[0]["payload"]["selector"] == "#missing"
+    assert result.node_results[0]["output"]["selector"] == "#searchInput"
+    recovery = result.node_results[0]["metadata"]["recovery"]
+    assert recovery["strategy"] == "browser_relocate"
+    assert recovery["retry_success"] is True
+    assert result.metadata["recovery"][0]["node_id"] == "fill"
+    assert len(core.recovery_engine.history()) == 1
+
+
+def test_skill_runtime_limits_recovery_to_one_retry(tmp_path):
+    class AlwaysFailingScenarioRuntime:
+        def __init__(self):
+            self.steps = []
+
+        def run_step(self, step):
+            self.steps.append(step)
+            if step.action == "ui.locate":
+                return {
+                    "step_id": step.id,
+                    "action": step.action,
+                    "success": True,
+                    "payload": step.payload,
+                    "output": {"best_match": {"selector": "#retry"}},
+                    "validation": {"success": True, "errors": []},
+                }
+            raise RuntimeError("element not found")
+
+    registry = SkillRegistry(default_root=tmp_path)
+    registry.register(
+        Skill(
+            id="test.recover.once",
+            name="Recover Once",
+            nodes=[
+                SkillNode(
+                    id="fill",
+                    type="action",
+                    action="browser.fill",
+                    payload={"selector": "#missing", "value": "AEGIS"},
+                    metadata={"query": "Search"},
+                )
+            ],
+        )
+    )
+    core = FakeCore()
+    core.scenario_runtime = AlwaysFailingScenarioRuntime()
+    core.recovery_engine = RecoveryEngineRuntime(
+        core,
+        history_path=tmp_path / "history.json",
+    )
+    runtime = SkillEngineRuntime(core, registry=registry)
+
+    result = runtime.run("test.recover.once")
+
+    assert result.success is False
+    assert [step.action for step in core.scenario_runtime.steps] == [
+        "browser.fill",
+        "ui.locate",
+        "browser.fill",
+    ]
+    recovery = result.node_results[0]["metadata"]["recovery"]
+    assert recovery["retry_success"] is False
+    assert len(core.recovery_engine.history()) == 1

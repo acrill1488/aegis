@@ -59,6 +59,7 @@ from .scenario import app as scenario_app
 from .skill_engine import app as skill_engine_app
 from .mission import app as mission_app
 from .project import app as project_app
+from .recovery import app as recovery_app
 
 app = typer.Typer()
 console = Console()
@@ -97,6 +98,7 @@ app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
 app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
 app.add_typer(mission_app, name="mission", help="Mission Engine commands")
 app.add_typer(project_app, name="project", help="Project Runtime commands")
+app.add_typer(recovery_app, name="recovery", help="Recovery Engine commands")
 
 @app.command("execute")
 def execute_command(

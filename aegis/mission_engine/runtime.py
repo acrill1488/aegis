@@ -88,6 +88,7 @@ class MissionRuntime:
         failed_node: str | None = None
         error: str | None = None
         completed_nodes: list[str] = []
+        recovery: list[dict[str, Any]] = []
 
         while True:
             pending = [node for node in mission.graph if node.status == "pending"]
@@ -108,6 +109,15 @@ class MissionRuntime:
             for node in ready:
                 result = self._run_node(node)
                 self.registry.save(mission)
+                node_recovery = node.metadata.get("recovery")
+                if node_recovery:
+                    recovery.append(
+                        {
+                            "node_id": node.id,
+                            "skill_id": node.skill_id,
+                            "recovery": to_plain(node_recovery),
+                        }
+                    )
                 if result.success:
                     completed_nodes.append(node.id)
                     continue
@@ -133,6 +143,7 @@ class MissionRuntime:
             failed_node=failed_node,
             report_path=str(report_path),
             error=error,
+            metadata={"recovery": recovery},
         )
 
     def status(self, mission_id: str) -> dict[str, Any]:
@@ -177,6 +188,9 @@ class MissionRuntime:
 
         node.outputs = to_plain(getattr(result, "output", {}))
         node.metadata["skill_result"] = result
+        recovery_info = getattr(result, "metadata", {}).get("recovery")
+        if recovery_info:
+            node.metadata["recovery"] = to_plain(recovery_info)
         node.metadata["started_at"] = getattr(result, "started_at", started_at)
         node.metadata["completed_at"] = getattr(result, "completed_at", self._now())
         if getattr(result, "success", False):

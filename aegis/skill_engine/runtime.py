@@ -11,11 +11,18 @@ from .models import Skill, SkillNode, SkillRunResult
 from .registry import SkillRegistry
 
 
+class _RecoveredActionError(RuntimeError):
+    def __init__(self, message: str, recovery_metadata: dict[str, Any]):
+        super().__init__(message)
+        self.recovery_metadata = recovery_metadata
+
+
 class SkillEngineRuntime:
     """Executes reusable YAML skill graphs through AEGIS runtime boundaries."""
 
     _SUPPORTED_ACTIONS = {
         "browser.open",
+        "browser.click",
         "browser.fill",
         "browser.press",
         "browser.wait",
@@ -38,6 +45,7 @@ class SkillEngineRuntime:
         self.action_dispatcher = getattr(core, "scenario_runtime", None)
         if self.action_dispatcher is None:
             self.action_dispatcher = ScenarioRuntime(core)
+        self.recovery_engine = getattr(core, "recovery_engine", None)
 
     def run(
         self,
@@ -107,7 +115,11 @@ class SkillEngineRuntime:
             try:
                 result = self._run_node(node, context=context, dry_run=dry_run)
             except Exception as exc:
-                result = self._failed_node_result(node, exc)
+                result = self._failed_node_result(
+                    node,
+                    exc,
+                    recovery=getattr(exc, "recovery_metadata", None),
+                )
             node_results.append(result)
             context["nodes"][node.id] = result
             if not result.get("success"):
@@ -119,6 +131,15 @@ class SkillEngineRuntime:
 
         completed_at = self._now()
         output = self._build_output(skill, context, node_results)
+        recovery = [
+            {
+                "node_id": result.get("node_id"),
+                "action": result.get("action"),
+                **dict(result.get("metadata", {}).get("recovery") or {}),
+            }
+            for result in node_results
+            if result.get("metadata", {}).get("recovery")
+        ]
         return SkillRunResult(
             skill_id=skill.id,
             success=success,
@@ -130,6 +151,7 @@ class SkillEngineRuntime:
             metadata={
                 "skill_name": skill.name,
                 "dry_run": dry_run,
+                "recovery": recovery,
             },
         )
 
@@ -148,9 +170,16 @@ class SkillEngineRuntime:
             validation = {"success": True, "errors": [], "skipped": True}
         else:
             self._validate_action_payload(node.action, payload)
-            output = self._invoke_action(node.action, payload)
+            output, recovery = self._invoke_action_with_recovery(
+                node,
+                payload,
+                context=context,
+            )
             validation = self.validate_expect(output, expect)
         completed_at = self._now()
+        metadata = to_plain(node.metadata)
+        if not dry_run and recovery:
+            metadata["recovery"] = recovery
         return {
             "node_id": node.id,
             "type": node.type,
@@ -162,7 +191,7 @@ class SkillEngineRuntime:
             "output": to_plain(output),
             "expect": to_plain(expect),
             "validation": validation,
-            "metadata": to_plain(node.metadata),
+            "metadata": metadata,
         }
 
     def _invoke_action(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -176,14 +205,64 @@ class SkillEngineRuntime:
             )
         return to_plain(target_result.get("output") or {})
 
+    def _invoke_action_with_recovery(
+        self,
+        node: SkillNode,
+        payload: dict[str, Any],
+        *,
+        context: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        try:
+            return self._invoke_action(node.action, payload), None
+        except Exception as exc:
+            recovery_engine = self.recovery_engine
+            if recovery_engine is None:
+                raise
+            decision = recovery_engine.recover(
+                node.action,
+                payload,
+                exc,
+                context={
+                    "source": f"skill:{node.id}",
+                    "metadata": node.metadata,
+                    "action_dispatcher": self.action_dispatcher,
+                    "attempt_metadata": {
+                        "node_id": node.id,
+                        "node_type": node.type,
+                    },
+                },
+            )
+            recovery_metadata = {
+                "attempted": True,
+                "strategy": decision.strategy,
+                "should_retry": decision.should_retry,
+                "reason": decision.reason,
+                "patched_payload": to_plain(decision.patched_payload),
+                "metadata": to_plain(decision.metadata),
+                "original_error": str(exc),
+            }
+            if not decision.should_retry:
+                raise _RecoveredActionError(str(exc), recovery_metadata) from exc
+            try:
+                output = self._invoke_action(node.action, decision.patched_payload)
+            except Exception as retry_exc:
+                recovery_metadata["retry_success"] = False
+                recovery_metadata["retry_error"] = str(retry_exc)
+                raise _RecoveredActionError(
+                    str(retry_exc),
+                    recovery_metadata,
+                ) from exc
+            recovery_metadata["retry_success"] = True
+            return output, recovery_metadata
+
     def _validate_action_payload(self, action: str, payload: dict[str, Any]) -> None:
-        if action != "browser.fill":
+        if action not in {"browser.fill", "browser.click"}:
             return
         selector = payload.get("selector")
         if not isinstance(selector, str) or not selector.strip():
             actual_type = type(selector).__name__
             raise ValueError(
-                "browser.fill requires payload.selector to be a non-empty string "
+                f"{action} requires payload.selector to be a non-empty string "
                 f"CSS selector; got {actual_type}"
             )
 
@@ -279,8 +358,17 @@ class SkillEngineRuntime:
         output = node_results[-1].get("output") or {}
         return output if isinstance(output, dict) else {"value": output}
 
-    def _failed_node_result(self, node: SkillNode, exc: Exception) -> dict[str, Any]:
+    def _failed_node_result(
+        self,
+        node: SkillNode,
+        exc: Exception,
+        *,
+        recovery: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         now = self._now()
+        metadata = to_plain(node.metadata)
+        if recovery:
+            metadata["recovery"] = to_plain(recovery)
         return {
             "node_id": node.id,
             "type": node.type,
@@ -293,7 +381,7 @@ class SkillEngineRuntime:
             "expect": to_plain(node.expect),
             "validation": {"success": False, "errors": [str(exc)]},
             "error": str(exc),
-            "metadata": to_plain(node.metadata),
+            "metadata": metadata,
         }
 
     def _get_skill(self, skill_id: str) -> Skill:

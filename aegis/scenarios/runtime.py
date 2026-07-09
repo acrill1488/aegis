@@ -19,6 +19,7 @@ class ScenarioRuntime:
 
     _ACTION_ROUTES = {
         "browser.open": ("browser", "open"),
+        "browser.click": ("browser", "click"),
         "browser.fill": ("browser", "fill"),
         "browser.press": ("browser", "press"),
         "browser.wait": ("browser", "wait"),
