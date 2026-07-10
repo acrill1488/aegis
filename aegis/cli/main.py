@@ -60,6 +60,7 @@ from .desktop import app as desktop_app
 from .vision import app as vision_app
 from .document import app as document_app
 from .image import app as image_app
+from .workflow import app as workflow_app
 from .scenario import app as scenario_app
 from .skill_engine import app as skill_engine_app
 from .mission import app as mission_app
@@ -106,6 +107,7 @@ app.add_typer(desktop_app, name="desktop", help="Desktop Runtime commands")
 app.add_typer(vision_app, name="vision", help="Vision Runtime commands")
 app.add_typer(document_app, name="document", help="Document Intelligence commands")
 app.add_typer(image_app, name="image", help="Image Generation Runtime commands")
+app.add_typer(workflow_app, name="workflow", help="Workflow Library commands")
 app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
 app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
 app.add_typer(mission_app, name="mission", help="Mission Engine commands")

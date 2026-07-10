@@ -16,6 +16,10 @@ class ImageGenerationRequest:
     seed: int | None = None
     style: str = ""
     output_dir: str = ""
+    workflow: str = ""
+    model_family: str = ""
+    task_type: str = "txt2img"
+    tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -24,7 +28,13 @@ class ImageGenerationResult:
     success: bool
     image_paths: list[str] = field(default_factory=list)
     provider: str = ""
+    workflow: str = ""
+    model_family: str = ""
     prompt: str = ""
     seed: int | None = None
+    images: list[str] = field(default_factory=list)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
+    generation_time: float = 0.0
+    warnings: list[str] = field(default_factory=list)
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
