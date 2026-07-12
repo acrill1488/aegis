@@ -3,7 +3,7 @@
 ## Near-Term Order
 
 1. Image Generation finalization - completed
-2. Unlimited-OCR - next planned
+2. OCR Platform - active
 
 No later vertical is active.
 
@@ -46,8 +46,32 @@ Planned future expansion:
 
 Catalog note: AnyLoRA and DreamShaper XL are catalog roadmap entries. The current catalog shows them as `installed=false`, so they are not counted as completed installed models.
 
-## Unlimited-OCR
+## OCR Platform
 
-Status: PLANNED / NOT STARTED
+Status: ACTIVE
 
-Unlimited-OCR is the next planned vertical after Image Generation closure. It has not been activated in code by this roadmap update.
+Current sprint: Foundation
+
+Active scope:
+
+- OCR Runtime package.
+- Provider API.
+- Provider Registry.
+- Stub Provider only.
+- Provider-neutral `OCRResult`.
+- OCR lifecycle events.
+- Artifact registration through the existing project artifact API.
+- CLI diagnostics: providers, doctor, capabilities.
+- Future provider registration path for UnlimitedOCRProvider, PaddleOCRProvider, and TesseractProvider without Runtime changes.
+
+Explicit non-scope:
+
+- OCR model integration.
+- UnlimitedOCRProvider implementation.
+- PaddleOCRProvider implementation.
+- TesseractProvider implementation.
+- Vision Language Models.
+- Qwen-VL.
+- UI Graph.
+- Memory.
+- Companion.

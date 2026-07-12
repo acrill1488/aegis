@@ -39,6 +39,7 @@ from aegis.desktop_runtime import DesktopRuntime
 from aegis.vision import VisionRuntime
 from aegis.vision.document import DocumentRuntime
 from aegis.image_generation import ImageGenerationRuntime
+from aegis.ocr import OCRRuntime
 
 class AegisCore:
     def __init__(self):
@@ -87,6 +88,8 @@ class AegisCore:
         self.registry.register("document", self.document)
         self.image_generation = ImageGenerationRuntime(self)
         self.registry.register("image_generation", self.image_generation)
+        self.ocr = OCRRuntime(self)
+        self.registry.register("ocr", self.ocr)
         self.mcp_runtime = MCPRuntime(self)
         self.registry.register("mcp_runtime", self.mcp_runtime)
         self.task_planning_runtime = TaskPlanningRuntime(
@@ -154,6 +157,7 @@ class AegisCore:
         self.vision.register_capabilities()
         self.document.register_capabilities()
         self.image_generation.register_capabilities()
+        self.ocr.register_capabilities()
         self.mcp_runtime.auto_discover_enabled()
         self.memory = MemoryManager(event_bus=self.events)
         self.live_context = ContextStore()

@@ -82,7 +82,7 @@ Future roadmap phases should include distributed clusters, autonomous research t
 # Current Near-Term Status
 
 1. Image Generation finalization - completed.
-2. Unlimited-OCR - next planned.
+2. OCR Platform - active.
 
 Image Generation is completed / production ready for the txt2img production boundary:
 
@@ -96,6 +96,20 @@ Image Generation is completed / production ready for the txt2img production boun
 - external-gated acceptance test.
 
 Future image expansion remains planned and is not marked completed: AnyLoRA installation, DreamShaper XL installation, img2img, inpainting, ControlNet, IP-Adapter, upscale, tattoo workflow presets, and model/workflow installer.
+
+OCR Platform is active for Foundation only:
+
+- OCR Runtime.
+- Provider API.
+- Provider Registry.
+- Stub Provider.
+- Provider-neutral `OCRResult`.
+- OCR events.
+- OCR artifact registration through the existing project artifact API.
+- OCR CLI diagnostics.
+- Future provider registration path for UnlimitedOCRProvider, PaddleOCRProvider, and TesseractProvider without Runtime changes.
+
+OCR Platform Foundation excludes production OCR models, UnlimitedOCRProvider implementation, PaddleOCRProvider implementation, TesseractProvider implementation, Vision Language Models, Qwen-VL, UI Graph, Memory, and Companion changes.
 
 # Coding Rules
 

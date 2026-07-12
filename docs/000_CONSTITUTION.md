@@ -2,7 +2,11 @@
 
 ## Active Vertical
 
-Image Generation -> COMPLETED
+OCR Platform -> ACTIVE
+
+## Active Sprint
+
+Foundation
 
 ## Completed Verticals
 
@@ -28,8 +32,6 @@ Image Generation -> COMPLETED
 
 ## Next Active Vertical
 
-Next planned vertical: Unlimited-OCR
+No later vertical is active.
 
-Status: PLANNED / NOT STARTED
-
-The One Active Vertical principle remains mandatory. This document records the next planned vertical only; it does not activate new implementation work.
+The One Active Vertical principle remains mandatory. The active implementation boundary is OCR Platform Foundation only.
