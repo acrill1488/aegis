@@ -74,6 +74,42 @@ Provider failures return structured errors and leave no half-registered artifact
 
 Image should support local model pipelines, layered editing, animation frames, visual brand kits, and dataset-aware asset generation.
 
+# Production Status
+
+Status: Production Ready
+
+Implemented:
+
+- ImageGenerationRuntime.
+- Provider API.
+- Stub Provider.
+- ComfyUI Provider.
+- LAN HTTP client handling with `trust_env=False`.
+- Workflow Library.
+- Image Model Catalog.
+- API workflow loading.
+- prompt/negative prompt/seed/size injection.
+- `POST /prompt`.
+- history polling.
+- image download through `/view`.
+- output persistence.
+- artifact registration.
+- events.
+- image doctor.
+- workflow validation.
+- acceptance test.
+
+Workflow Library status: production foundation complete for cataloging, selection, listing, scanning, and validation of txt2img ComfyUI workflows.
+
+Image Model Catalog status: production foundation complete for catalog entries, installed-state tracking, search, and detection. Catalog roadmap entries such as AnyLoRA and DreamShaper XL are not treated as installed unless their catalog `installed` value is true.
+
+Known production limitations:
+
+- The production-ready boundary is txt2img through ComfyUI.
+- AnyLoRA and DreamShaper XL installation remains planned when catalog state is `installed=false`.
+- img2img, inpainting, ControlNet, IP-Adapter, upscale, tattoo presets, and model/workflow installer remain future expansion.
+- The stub provider remains available for tests and non-production fallback, but must not mask ComfyUI production failures.
+
 # Coding Rules
 
 - Generated images must be registered as artifacts.

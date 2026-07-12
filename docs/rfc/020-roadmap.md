@@ -79,6 +79,24 @@ If implementation reveals an RFC gap, work pauses for an RFC update. If tests fa
 
 Future roadmap phases should include distributed clusters, autonomous research teams, user-programmable agents, signed plugin marketplaces, multimodal memory, and formal verification for high-risk automation.
 
+# Current Near-Term Status
+
+1. Image Generation finalization - completed.
+2. Unlimited-OCR - next planned.
+
+Image Generation is completed / production ready for the txt2img production boundary:
+
+- ImageGenerationRuntime.
+- ComfyUI Provider.
+- Workflow Library.
+- Image Model Catalog.
+- image doctor diagnostics.
+- output persistence.
+- artifact registration.
+- external-gated acceptance test.
+
+Future image expansion remains planned and is not marked completed: AnyLoRA installation, DreamShaper XL installation, img2img, inpainting, ControlNet, IP-Adapter, upscale, tattoo workflow presets, and model/workflow installer.
+
 # Coding Rules
 
 - Implementation follows accepted RFCs.

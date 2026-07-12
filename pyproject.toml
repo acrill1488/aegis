@@ -48,3 +48,9 @@ where = ["."]
 
 [tool.setuptools.package-dir]
 "aegis" = "aegis"
+
+[tool.pytest.ini_options]
+markers = [
+    "acceptance: external acceptance checks that are not part of the default local gate",
+    "external: tests that contact external services or machines",
+]
