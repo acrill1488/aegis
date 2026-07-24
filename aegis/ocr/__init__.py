@@ -2,7 +2,7 @@
 
 from .models import OCRBlock, OCRResult, OCRTable
 from .provider import OCRProvider, StubOCRProvider
-from .providers import UnlimitedOCRProvider
+from .providers import PaddleOCRProvider, UnlimitedOCRProvider
 from .registry import OCRProviderRegistry, OCRRegistry
 from .runtime import OCRRuntime
 
@@ -14,6 +14,7 @@ __all__ = [
     "OCRResult",
     "OCRRuntime",
     "OCRTable",
+    "PaddleOCRProvider",
     "StubOCRProvider",
     "UnlimitedOCRProvider",
 ]

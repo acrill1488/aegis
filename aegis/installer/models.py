@@ -44,6 +44,8 @@ class PackageManifest(BaseModel):
     name: str
     type: ComponentType
     version: str
+    python_requires: str | None = None
+    python_recommended: str | None = None
     description: str = ""
     dependencies: list[str] = Field(default_factory=list)
     services: list[str] = Field(default_factory=list)

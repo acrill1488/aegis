@@ -1,0 +1,31 @@
+schema_version: 1
+id: paddleocr
+name: PaddleOCR Provider
+type: provider
+version: "1.0.0"
+python_requires: ">=3.12,<3.14"
+python_recommended: "3.12"
+description: Optional in-process PaddleOCR provider for printed text.
+dependencies: [python]
+providers: [paddleocr]
+healthcheck:
+  type: provider
+  service: paddleocr
+config:
+  section: ocr.providers.paddleocr
+  defaults:
+    enabled: true
+    device: auto
+    language: en
+    use_angle_cls: true
+    confidence_threshold: 0.5
+    timeout_seconds: 120
+    max_image_size: 4096
+install:
+  - type: command
+    command: ["${python}", -m, pip, install, paddleocr, paddlepaddle]
+remove:
+  - type: command
+    command: ["${python}", -m, pip, uninstall, -y, paddleocr, paddlepaddle]
+source: builtin
+permissions: [storage]

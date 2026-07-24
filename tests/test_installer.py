@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from aegis.installer.errors import InstallerError, OperationError
+from aegis.installer.errors import DependencyError, InstallerError, OperationError
+from aegis.installer.executor import ActionExecutor
 from aegis.installer.manager import PackageManager
 from aegis.installer.models import Action
 from aegis.installer.paths import InstallerPaths
@@ -40,12 +43,22 @@ def make_paths(tmp_path: Path) -> InstallerPaths:
     )
 
 
-def write_manifest(paths: InstallerPaths, component_id: str, *, dependencies=None, install=None, remove=None) -> None:
+def write_manifest(
+    paths: InstallerPaths,
+    component_id: str,
+    *,
+    dependencies=None,
+    install=None,
+    remove=None,
+    python_requires=None,
+    python_recommended=None,
+    name=None,
+) -> None:
     paths.manifests.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": 1,
         "id": component_id,
-        "name": component_id.title(),
+        "name": name or component_id.title(),
         "type": "service",
         "version": "1.0.0",
         "dependencies": dependencies or [],
@@ -55,6 +68,10 @@ def write_manifest(paths: InstallerPaths, component_id: str, *, dependencies=Non
         "source": "test",
         "permissions": [],
     }
+    if python_requires:
+        payload["python_requires"] = python_requires
+    if python_recommended:
+        payload["python_recommended"] = python_recommended
     (paths.manifests / f"{component_id}.yaml").write_text(
         json.dumps(payload), encoding="utf-8"
     )
@@ -123,3 +140,42 @@ def test_bootstrap_creates_valid_configuration_and_state(tmp_path: Path, monkeyp
     assert report.ok
     assert paths.services_config.exists()
     assert paths.installed.exists()
+
+
+def test_incompatible_python_stops_before_executor(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    write_manifest(
+        paths,
+        "paddleocr",
+        dependencies=["python"],
+        install=[{"type": "command", "command": ["${python}", "-m", "pip", "install", "paddleocr"]}],
+        python_requires=">=3.12,<3.14",
+        python_recommended="3.12",
+        name="PaddleOCR Provider",
+    )
+    executor = FakeExecutor()
+    manager = PackageManager(paths=paths, executor=executor)  # type: ignore[arg-type]
+    manager.resolver.python_version = (3, 14, 0)
+
+    with pytest.raises(
+        DependencyError,
+        match=r"PaddleOCR cannot be installed with Python 3\.14.*Python 3\.12 runtime is required",
+    ):
+        manager.install("paddleocr")
+
+    assert executor.executed == []
+
+
+def test_command_python_placeholder_uses_current_interpreter(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    calls: list[list[str]] = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    executor = ActionExecutor(paths, runner=runner)
+
+    executor.execute(Action(type="command", command=["${python}", "-m", "pip", "--version"]))
+
+    assert calls == [[sys.executable, "-m", "pip", "--version"]]

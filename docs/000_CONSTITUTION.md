@@ -2,7 +2,7 @@
 
 ## Active Vertical
 
-OCR Platform -> ACTIVE
+OCR Platform -> PaddleOCR Provider v1 -> ACTIVE
 
 ## Active Sprint
 
@@ -44,7 +44,6 @@ Allowed scope:
 
 Not started:
 
-- PaddleOCR
 - Tesseract
 - Vision Language Models
 - Qwen-VL

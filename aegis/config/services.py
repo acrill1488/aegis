@@ -65,6 +65,7 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
             "server": {"host": "127.0.0.1", "scheme": "http"},
             "services": {name: {"port": port, "base_url": None} for name, port in DEFAULT_PORTS.items()},
             "paths": {},
+            "ocr": {"providers": {"paddleocr": {}}},
         }
         return ServicesConfig(path, data, "fallback")
     try:
@@ -100,6 +101,9 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
         raise _error(path, f"Missing services: {', '.join(sorted(missing))}.")
     if any(not isinstance(value, str) or not value for value in paths.values()):
         raise _error(path, "All paths values must be non-empty strings.")
+    ocr = data.get("ocr", {})
+    if not isinstance(ocr, dict) or not isinstance(ocr.get("providers", {}), dict):
+        raise _error(path, "ocr and ocr.providers must be mappings when present.")
     return ServicesConfig(path, data, "yaml")
 
 

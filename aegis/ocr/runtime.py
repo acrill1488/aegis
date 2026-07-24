@@ -59,8 +59,12 @@ class OCRRuntime:
             for provider in self.registry.providers()
         ]
 
-    def doctor(self, verbose: bool = False) -> dict[str, Any]:
-        return OCRDoctor(self.registry).report(verbose=verbose)
+    def doctor(
+        self,
+        verbose: bool = False,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
+        return OCRDoctor(self.registry).report(verbose=verbose, provider=provider)
 
     def capabilities(self, provider: str | None = None) -> dict[str, Any]:
         selected = self.registry.provider(provider)

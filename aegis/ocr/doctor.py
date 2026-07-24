@@ -13,7 +13,11 @@ class OCRDoctor:
     def __init__(self, registry: OCRRegistry):
         self.registry = registry
 
-    def report(self, verbose: bool = False) -> dict[str, Any]:
+    def report(
+        self,
+        verbose: bool = False,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
         providers = [
             {
                 "name": provider_name(provider),
@@ -37,7 +41,7 @@ class OCRDoctor:
         overall = "PRODUCTION READY" if service_alive and recognition_ready else "FOUNDATION READY"
         if service_alive and not recognition_ready:
             overall = "SERVICE READY / INFERENCE NOT VERIFIED"
-        return {
+        report = {
             "platform": "OCR Platform",
             "providers": providers,
             "available": available,
@@ -52,3 +56,20 @@ class OCRDoctor:
             "models_checked": bool(unlimited),
             "states": states,
         }
+        if provider is not None:
+            selected_instance = self.registry.provider(provider)
+            selected_name = provider_name(selected_instance)
+            selected = next(item for item in providers if item["name"] == selected_name)
+            health = selected.get("health", {})
+            available = bool(selected["available"])
+            report["selected_provider"] = {
+                "id": selected_name,
+                "overall": "READY" if available else "NOT READY",
+                "available": available,
+                "device": health.get("device", "unavailable"),
+                "status": health.get("status", "unknown"),
+                "reason": None if available else health.get("status", "unavailable"),
+                "message": health.get("message") or health.get("error"),
+                "states": selected.get("doctor", {}).get("states", {}),
+            }
+        return report

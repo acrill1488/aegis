@@ -41,6 +41,17 @@ class HealthChecker:
         elif health.type == "path":
             exists = Path(health.path or "").exists()
             checks.append(CheckResult(name=f"health:{manifest.id}", ok=exists, details=health.path or "path missing"))
+        elif health.type == "provider":
+            try:
+                if manifest.id == "paddleocr":
+                    from aegis.providers.paddleocr import PaddleOCRProvider
+
+                    provider_health = PaddleOCRProvider().health()
+                    checks.append(CheckResult(name="health:paddleocr", ok=bool(provider_health["available"]), details=f"{provider_health['status']}: {provider_health.get('message', '')}".strip()))
+                else:
+                    checks.append(CheckResult(name=f"health:{manifest.id}", ok=True, details="Provider health is checked by its runtime"))
+            except Exception as exc:
+                checks.append(CheckResult(name=f"health:{manifest.id}", ok=False, details=str(exc)))
         else:
             checks.append(CheckResult(name=f"health:{manifest.id}", ok=True, details="No external health check required"))
         return DiagnosticReport(ok=all(item.ok or not item.required for item in checks), checks=checks)

@@ -47,7 +47,7 @@ Providers implement `OCRProvider`:
 - `recognize_pdf(source, language=None, options=None) -> OCRResult`
 - `recognize_directory(source, language=None, options=None) -> OCRResult`
 
-The registry registers `StubOCRProvider` and `UnlimitedOCRProvider`. PaddleOCRProvider and TesseractProvider must be added later through the registry without changing Runtime or the public Provider API.
+The registry registers `StubOCRProvider`, `UnlimitedOCRProvider`, and `PaddleOCRProvider`. TesseractProvider may be added later through the registry without changing Runtime or the public Provider API.
 
 ## OCRResult
 
@@ -112,15 +112,13 @@ Required registry methods:
 Current state:
 
 - default provider: `unlimited` when the service is available and healthy, otherwise `stub` for diagnostics.
-- registered providers: `StubOCRProvider`, `UnlimitedOCRProvider`
-- production providers: `UnlimitedOCRProvider`
+- registered providers: `StubOCRProvider`, `UnlimitedOCRProvider`, `PaddleOCRProvider`
+- production providers: `UnlimitedOCRProvider`, with optional local `PaddleOCRProvider`
 
 Recognition commands must not silently return a stub result when Unlimited-OCR is unavailable. They return an explicit provider/service error instead.
 
 Future registry targets:
 
-- `UnlimitedOCRProvider`
-- `PaddleOCRProvider`
 - `TesseractProvider`
 
 ## CLI
@@ -158,6 +156,6 @@ Stub availability is not counted as production readiness.
 
 ## Constraints
 
-- Do not add PaddleOCRProvider or TesseractProvider.
+- Do not add TesseractProvider in the PaddleOCR Provider v1 slice.
 - Do not add Vision, Qwen-VL, UI Graph, Memory, or Companion changes.
 - Do not break the Provider API once production providers depend on it.

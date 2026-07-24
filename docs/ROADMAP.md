@@ -1,5 +1,11 @@
 # План разработки AEGIS
 
+## Active vertical
+
+- OCR Platform: PaddleOCR Provider v1
+- Installer / Package Manager: completed
+- Следующие вертикали сохраняют существующий порядок.
+
 ## Версии
 
 ### 0.1 Foundation

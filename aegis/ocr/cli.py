@@ -16,43 +16,70 @@ console = Console()
 
 
 @app.command("providers")
-def providers():
+def providers(json_output: bool = typer.Option(False, "--json")):
     """Show OCR providers."""
+    provider_rows = [_provider_summary(provider) for provider in _runtime().providers()]
+    if json_output:
+        typer.echo(to_json({"providers": provider_rows}))
+        return
     table = Table(title="OCR Providers")
     table.add_column("Provider")
     table.add_column("Available")
     table.add_column("Default")
-    table.add_column("Mode")
-    table.add_column("Formats")
-    for provider in _runtime().providers():
-        capabilities = provider.get("capabilities", {})
+    table.add_column("Device")
+    table.add_column("Status")
+    for provider in provider_rows:
         table.add_row(
-            str(provider["name"]),
+            str(provider["id"]),
             "yes" if provider["available"] else "no",
             "yes" if provider["default"] else "no",
-            str(capabilities.get("mode", "")),
-            ", ".join(provider.get("supported_formats", [])),
+            str(provider["device"]),
+            str(provider["status"]),
         )
     console.print(table)
 
 
 @app.command("doctor")
-def doctor(verbose: bool = typer.Option(False, "--verbose", "-v")):
+def doctor(
+    provider: str | None = typer.Argument(None),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    json_output: bool = typer.Option(False, "--json"),
+):
     """Diagnose OCR Runtime provider wiring."""
-    report = _runtime().doctor(verbose=verbose)
+    try:
+        report = _runtime().doctor(verbose=verbose, provider=provider)
+    except Exception as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from None
+    if json_output:
+        typer.echo(to_json(report))
+        return
     console.print("[bold]OCR Doctor[/bold]")
+    console.print("[bold]Platform Status[/bold]")
     console.print(f"Platform: {report['platform']}")
+    console.print(f"Platform Overall: {report['overall']}")
     console.print(f"Default Provider: {report['default_provider']}")
     console.print(f"Available: {', '.join(report['available']) or '-'}")
-    console.print(f"Overall: {report['overall']}")
     console.print(f"Model Checks: {'yes' if report['models_checked'] else 'no'}")
+    selected_status = report.get("selected_provider")
+    if selected_status:
+        console.print("[bold]Selected Provider Status[/bold]")
+        console.print(f"Selected Provider: {selected_status['id']}")
+        console.print(f"Selected Provider Overall: {selected_status['overall']}")
+        console.print(f"Available: {str(selected_status['available']).lower()}")
+        console.print(f"Device: {selected_status['device']}")
+        console.print(f"Status: {selected_status['status']}")
+        if selected_status.get("reason"):
+            console.print(f"Reason: {selected_status['reason']}")
+        if selected_status.get("message"):
+            console.print(f"Details: {selected_status['message']}")
     states = report.get("states") or {}
-    if states:
+    if states and not selected_status:
         console.print(
             "States: "
             + ", ".join(f"{key}={value}" for key, value in sorted(states.items()))
         )
-    if verbose:
+    if verbose and not selected_status:
         unlimited = next(
             (item for item in report["providers"] if item["name"] == "unlimited"),
             None,
@@ -75,7 +102,12 @@ def doctor(verbose: bool = typer.Option(False, "--verbose", "-v")):
     table.add_column("Available")
     table.add_column("Capabilities")
     table.add_column("Supported Formats")
-    for provider in report["providers"]:
+    visible_providers = report["providers"]
+    if selected_status:
+        visible_providers = [
+            item for item in visible_providers if item["name"] == selected_status["id"]
+        ]
+    for provider in visible_providers:
         capabilities = provider["capabilities"]
         capability_names = [
             key for key, value in capabilities.items() if isinstance(value, bool) and value
@@ -159,10 +191,12 @@ def recognize(
     provider: str | None = typer.Option(None, "--provider"),
     output: Path | None = typer.Option(None, "--output"),
     json_output: bool = typer.Option(False, "--json"),
+    device: str | None = typer.Option(None, "--device"),
+    confidence: float | None = typer.Option(None, "--confidence"),
 ):
     """Recognize text from an image, PDF, document, or directory."""
     runtime = _runtime()
-    options = _recognize_options(output)
+    options = {**_recognize_options(output), "device": device, "confidence_threshold": confidence}
     if kind == "pdf":
         result = runtime.recognize_pdf(source, language=language, provider=provider, options=options)
     elif kind == "document":
@@ -180,9 +214,24 @@ def _recognize_options(output: Path | None) -> dict:
     return {"output_dir": str(output)} if output is not None else {}
 
 
+def _provider_summary(provider: dict) -> dict:
+    health = provider.get("health", {})
+    summary = {
+        "id": str(provider["name"]),
+        "available": bool(provider["available"]),
+        "default": bool(provider["default"]),
+        "device": health.get("device", "unavailable"),
+        "status": health.get("status", "unknown"),
+    }
+    reason = health.get("message") or health.get("error")
+    if reason:
+        summary["reason"] = str(reason)
+    return summary
+
+
 def _print_result(result, *, json_output: bool) -> None:
     if json_output:
-        console.print(to_json(result))
+        typer.echo(to_json(result))
         return
     console.print(f"Provider: {result.provider}")
     console.print(f"Source: {result.source}")

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import sys
+from collections.abc import Sequence
 
 from .catalog import ManifestRegistry
 from .errors import DependencyError
@@ -12,8 +14,14 @@ SYSTEM_DEPENDENCIES = {"python", "docker", "cuda", "gpu", "network", "storage"}
 
 
 class DependencyResolver:
-    def __init__(self, registry: ManifestRegistry):
+    def __init__(
+        self,
+        registry: ManifestRegistry,
+        *,
+        python_version: Sequence[int] | None = None,
+    ):
         self.registry = registry
+        self.python_version = tuple(python_version or sys.version_info[:3])
 
     def resolve(self, manifest: PackageManifest) -> list[PackageManifest]:
         resolved: list[PackageManifest] = []
@@ -39,7 +47,10 @@ class DependencyResolver:
         checks: list[CheckResult] = []
         for dependency in manifest.dependencies:
             if dependency == "python":
-                checks.append(CheckResult(name="python", ok=True, details="Python runtime is active"))
+                compatible = self._python_compatible(manifest.python_requires)
+                current = ".".join(str(part) for part in self.python_version[:2])
+                details = f"Python {current} satisfies {manifest.python_requires}" if compatible else self._python_error(manifest)
+                checks.append(CheckResult(name="python", ok=compatible, details=details))
             elif dependency == "docker":
                 ok = shutil.which("docker") is not None
                 checks.append(CheckResult(name="docker", ok=ok, details="docker command found" if ok else "Install Docker and make the docker command available"))
@@ -59,3 +70,33 @@ class DependencyResolver:
         if failed:
             reasons = "; ".join(f"{check.name}: {check.details}" for check in failed)
             raise DependencyError(f"Cannot install '{manifest.id}': {reasons}")
+
+    def _python_compatible(self, requirement: str | None) -> bool:
+        if not requirement:
+            return True
+        current = self.python_version[:3]
+        for clause in (item.strip() for item in requirement.split(",")):
+            operator = next((item for item in (">=", "<=", "==", ">", "<") if clause.startswith(item)), None)
+            if operator is None:
+                return False
+            expected = tuple(int(part) for part in clause[len(operator):].split("."))
+            actual = current[: len(expected)]
+            matches = {
+                ">=": actual >= expected,
+                "<=": actual <= expected,
+                "==": actual == expected,
+                ">": actual > expected,
+                "<": actual < expected,
+            }[operator]
+            if not matches:
+                return False
+        return True
+
+    def _python_error(self, manifest: PackageManifest) -> str:
+        current = ".".join(str(part) for part in self.python_version[:2])
+        name = manifest.name.removesuffix(" Provider")
+        recommendation = manifest.python_recommended or manifest.python_requires or "a compatible runtime"
+        return (
+            f"{name} cannot be installed with Python {current}. "
+            f"A compatible Python {recommendation} runtime is required."
+        )

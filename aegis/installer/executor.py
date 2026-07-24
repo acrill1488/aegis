@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -71,6 +72,7 @@ class ActionExecutor:
 
     def _expand(self, value: str) -> str:
         replacements = {
+            "${python}": sys.executable,
             "${workspace}": str(self.paths.workspace),
             "${state_dir}": str(self.paths.state_dir),
             "${services_config}": str(self.paths.services_config),
