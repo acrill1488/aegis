@@ -1,13 +1,14 @@
 import httpx
 from typing import List
 from .base import RuntimeProvider
+from aegis.config.services import get_service_base_url
 
 
 class OllamaRuntimeProvider(RuntimeProvider):
     """Runtime provider for Ollama."""
     
-    def __init__(self, base_url: str = "http://192.168.1.7:11434", model: str = None, timeout: int = 30):
-        self.base_url = base_url.rstrip("/")  # Remove trailing slash if present
+    def __init__(self, base_url: str | None = None, model: str = None, timeout: int = 30):
+        self.base_url = get_service_base_url("ollama", explicit=base_url)
         self.default_model = model
         self.timeout = timeout
     

@@ -1,0 +1,19 @@
+schema_version: 1
+id: comfyui
+name: ComfyUI
+type: provider
+version: "1.0.0"
+description: ComfyUI provider managed through the existing Image Runtime API.
+dependencies: [image-runtime, network]
+services: [comfyui]
+providers: [comfyui]
+healthcheck:
+  type: http
+  service: comfyui
+  endpoint: /system_stats
+config:
+  service_url: configuration:comfyui
+install: [{type: noop}]
+remove: [{type: noop}]
+source: builtin
+permissions: [network]

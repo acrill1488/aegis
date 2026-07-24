@@ -8,12 +8,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aegis.config.services import get_configured_path
+
 from aegis.serialization import to_plain
 
 IMAGE_GENERATION_ROOT = Path(r"F:\AI_WORKSPACE\image_generation")
 MODEL_CATALOG_PATH = IMAGE_GENERATION_ROOT / "models" / "catalog.json"
 LOCAL_MODELS_ROOT = IMAGE_GENERATION_ROOT / "models"
-COMFYUI_NETWORK_MODELS_ROOT = Path(r"\\192.168.1.7\aegis\comfyui\models")
 MODEL_SUBDIRS = {
     "checkpoint": "checkpoints",
     "lora": "loras",
@@ -115,9 +116,10 @@ class ImageModelCatalog:
         return [model for model in self.list() if needle in self._search_text(model)]
 
     def default_comfyui_models_root(self) -> Path:
+        configured_root = Path(get_configured_path("comfyui_models"))
         try:
-            if COMFYUI_NETWORK_MODELS_ROOT.exists():
-                return COMFYUI_NETWORK_MODELS_ROOT
+            if configured_root.exists():
+                return configured_root
         except OSError:
             pass
         return LOCAL_MODELS_ROOT

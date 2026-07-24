@@ -1,0 +1,12 @@
+schema_version: 1
+id: greenboost
+name: GreenBoost
+type: runtime
+version: "1.0.0"
+description: Existing AEGIS GPU resource orchestration runtime.
+dependencies: [python, gpu]
+healthcheck: {type: none}
+install: [{type: noop}]
+remove: [{type: noop}]
+source: builtin
+permissions: [gpu, process]

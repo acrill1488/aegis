@@ -1,0 +1,13 @@
+schema_version: 1
+id: image-runtime
+name: Image Runtime
+type: runtime
+version: "1.0.0"
+description: Existing provider-neutral AEGIS Image Generation Runtime.
+dependencies: [python]
+providers: [comfyui]
+healthcheck: {type: none}
+install: [{type: noop}]
+remove: [{type: noop}]
+source: builtin
+permissions: []

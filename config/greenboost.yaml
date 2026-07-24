@@ -1,0 +1,36 @@
+schema_version: 1
+enabled: true
+default_profile: ocr_rtx3050
+upstream:
+  url: https://gitlab.com/IsolatedOctopi/greenboost.git
+  branch: main
+  commit: e390fd027180ed36738971251efcb031ff401e36
+  license: GPL-2.0-only OR commercial
+command_timeout_seconds: 60
+vram_wait_timeout_seconds: 90
+poll_interval_seconds: 2
+ollama_base_url: http://192.168.1.12:11434
+server: {host: 192.168.1.12, user: aegis}
+gpu_snapshot_command: "& 'F:\\AEGIS\\scripts\\greenboost_gpu_snapshot.ps1' -HostName '192.168.1.12' -User 'aegis'"
+services:
+  unlimited-ocr:
+    health_url: http://192.168.1.12:8190/health
+    info_url: http://192.168.1.12:8190/info
+    unload_url: http://192.168.1.12:8190/unload
+  comfyui:
+    health_url: http://192.168.1.12:8188/system_stats
+    stop_command: "& 'F:\\AEGIS\\scripts\\gpu_service_handoff.ps1' -Action stop -Service comfyui -HostName '192.168.1.12' -User 'aegis'"
+    start_command: "& 'F:\\AEGIS\\scripts\\gpu_service_handoff.ps1' -Action start -Service comfyui -HostName '192.168.1.12' -User 'aegis'"
+profiles:
+  ocr_rtx3050:
+    required_free_vram_mb: 7000
+    gpu_memory_limit_gb: 5.5
+    max_image_side: 1024
+    cpu_offload: true
+    stoppable_services: [comfyui]
+    unloadable_ollama_models: ['*']
+    restore_stopped_services: true
+    retry_policy:
+      - {name: normal, max_image_side: 1024}
+      - {name: memory_saver, max_image_side: 768}
+      - {name: emergency, max_image_side: 640}

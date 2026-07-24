@@ -4,7 +4,7 @@
 
 OCR Platform is the provider-neutral text extraction layer for AEGIS. It gives the system one stable architecture for extracting text and document structure from images, documents, PDFs, and directories before any production OCR provider is connected.
 
-Production providers are expected in later sprints. This RFC defines the runtime boundary only.
+The Foundation sprint defined the runtime boundary. The current sprint connects the first production provider, `UnlimitedOCRProvider`, through a stable HTTP service boundary.
 
 ## Responsibilities
 
@@ -47,7 +47,7 @@ Providers implement `OCRProvider`:
 - `recognize_pdf(source, language=None, options=None) -> OCRResult`
 - `recognize_directory(source, language=None, options=None) -> OCRResult`
 
-The foundation sprint registers only `StubOCRProvider`. `UnlimitedOCRProvider`, `PaddleOCRProvider`, and `TesseractProvider` must be added later through the registry without changing Runtime or the public Provider API.
+The registry registers `StubOCRProvider` and `UnlimitedOCRProvider`. PaddleOCRProvider and TesseractProvider must be added later through the registry without changing Runtime or the public Provider API.
 
 ## OCRResult
 
@@ -81,6 +81,8 @@ OCR Runtime publishes:
 
 Events carry provider name, source metadata, and normalized result data when available.
 
+Recognition events must not include the full recognized text. Event payloads carry summaries, counts, warnings, errors, and artifact paths.
+
 ## Artifact
 
 OCR Runtime can register an `OCRResult` as an artifact with type `ocr.result` by using the existing active project artifact API. This keeps OCR aligned with Mission and Project artifact handling without introducing a new artifact store in the foundation sprint.
@@ -107,11 +109,13 @@ Required registry methods:
 - `provider(name)`
 - `available()`
 
-Foundation state:
+Current state:
 
-- default provider: `stub`
-- registered providers: `StubOCRProvider`
-- production providers: none
+- default provider: `unlimited` when the service is available and healthy, otherwise `stub` for diagnostics.
+- registered providers: `StubOCRProvider`, `UnlimitedOCRProvider`
+- production providers: `UnlimitedOCRProvider`
+
+Recognition commands must not silently return a stub result when Unlimited-OCR is unavailable. They return an explicit provider/service error instead.
 
 Future registry targets:
 
@@ -121,14 +125,16 @@ Future registry targets:
 
 ## CLI
 
-Foundation commands:
+Commands:
 
 - `aegis ocr providers`
-- `aegis ocr doctor`
+- `aegis ocr doctor --verbose`
 - `aegis ocr capabilities`
 - `aegis ocr recognize`
+- `aegis ocr recognize-image PATH --provider unlimited`
+- `aegis ocr recognize-pdf PATH --provider unlimited`
 
-`recognize` is a placeholder and returns `NotImplemented` until a production provider exists.
+Recognition commands return normalized `OCRResult` data and save `.txt` plus `.json` artifacts after success.
 
 ## Diagnostics
 
@@ -139,14 +145,19 @@ OCR Doctor reports:
 - Capabilities
 - Supported Formats
 - Default Provider
+- Unlimited-OCR config
+- TCP reachability
+- `/health`
+- `/info`
+- model loaded or lazy
+- GPU detected when reported by the service
+- output directory writability
+- recognition readiness
 
-OCR Doctor does not check models in this sprint.
+Stub availability is not counted as production readiness.
 
 ## Constraints
 
-- Do not integrate OCR models in the foundation sprint.
-- Do not add Docker or model downloads.
-- Do not add UnlimitedOCRProvider yet.
 - Do not add PaddleOCRProvider or TesseractProvider.
 - Do not add Vision, Qwen-VL, UI Graph, Memory, or Companion changes.
 - Do not break the Provider API once production providers depend on it.

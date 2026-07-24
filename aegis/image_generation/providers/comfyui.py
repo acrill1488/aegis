@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import ipaddress
+import os
 import platform
 import socket
 import subprocess
@@ -16,6 +17,7 @@ from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import uuid4
 
 import httpx
+from aegis.config.services import get_service_base_url
 from PIL import Image
 
 from aegis.image_generation.models import (
@@ -24,7 +26,6 @@ from aegis.image_generation.models import (
 )
 
 CONFIG_PATH = Path(r"F:\AI_WORKSPACE\image_generation\comfyui.json")
-DEFAULT_BASE_URL = "http://192.168.1.7:8188"
 DEFAULT_WORKFLOW_PATH = Path(r"F:\AI_WORKSPACE\image_generation\workflows\default.json")
 DEFAULT_OUTPUT_DIR = Path(r"F:\AI_WORKSPACE\images\generated")
 DEFAULT_TIMEOUT_SECONDS = 300
@@ -89,9 +90,11 @@ class ComfyUIProvider:
         self,
         config_path: Path | str = CONFIG_PATH,
         event_publisher: EventPublisher | None = None,
+        base_url: str | None = None,
     ):
         self.config_path = Path(config_path)
         self._event_publisher = event_publisher
+        self._base_url_override = base_url
 
     def available(self) -> bool:
         config = self._load_config()
@@ -249,15 +252,29 @@ class ComfyUIProvider:
 
     def _load_config(self) -> dict[str, Any]:
         config = {
-            "base_url": DEFAULT_BASE_URL,
             "workflow_path": str(DEFAULT_WORKFLOW_PATH),
             "output_dir": str(DEFAULT_OUTPUT_DIR),
             "timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
         }
+        legacy_base_url = None
         if self.config_path.exists():
             data = json.loads(self.config_path.read_text(encoding="utf-8-sig"))
             if isinstance(data, dict):
-                config.update({key: value for key, value in data.items() if value not in (None, "")})
+                legacy_base_url = data.get("base_url")
+                config.update(
+                    {
+                        key: value
+                        for key, value in data.items()
+                        if key != "base_url" and value not in (None, "")
+                    }
+                )
+        service_environment_url = os.environ.get("AEGIS_COMFYUI_BASE_URL")
+        config["base_url"] = get_service_base_url(
+            "comfyui",
+            explicit=self._base_url_override
+            or service_environment_url
+            or (str(legacy_base_url) if legacy_base_url else None),
+        )
         config["base_url"] = str(config["base_url"]).rstrip("/")
         config["workflow_path"] = str(config["workflow_path"])
         config["output_dir"] = str(config["output_dir"])

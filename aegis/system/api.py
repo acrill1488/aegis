@@ -2,6 +2,7 @@ import socket
 import subprocess
 
 import httpx
+from aegis.config.services import get_service_base_url
 
 from aegis.system.models import (
     CPUInfo,
@@ -20,9 +21,6 @@ except ImportError:  # pragma: no cover - exercised only in incomplete environme
 
 
 BYTES_PER_GB = 1024**3
-OLLAMA_TAGS_URL = "http://192.168.1.7:11434/api/tags"
-
-
 class SystemAPI:
     """Public API for local system resource and service status."""
 
@@ -134,7 +132,9 @@ class SystemAPI:
 
     def ollama(self) -> ServiceInfo:
         try:
-            response = httpx.get(OLLAMA_TAGS_URL, timeout=5, trust_env=False)
+            response = httpx.get(
+                f"{get_service_base_url('ollama')}/api/tags", timeout=5, trust_env=False
+            )
         except Exception as exc:
             return ServiceInfo(name="ollama", available=False, details=str(exc))
 

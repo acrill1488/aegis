@@ -1,0 +1,36 @@
+services:
+  unlimited-ocr:
+    build:
+      context: ./service
+    container_name: aegis-unlimited-ocr
+    restart: unless-stopped
+    ports:
+      - "8190:8190"
+    environment:
+      AEGIS_UNLIMITED_OCR_MODEL_ID: baidu/Unlimited-OCR
+      AEGIS_UNLIMITED_OCR_MODEL_REVISION: ee63731b6461c8afcdcc7b15352e7d2ffecc2ead
+      AEGIS_UNLIMITED_OCR_OUTPUT_DIR: /output
+      AEGIS_UNLIMITED_OCR_LAZY_LOAD: "1"
+      AEGIS_UNLIMITED_OCR_LOAD_PROFILE: low_vram
+      AEGIS_OCR_DEVICE: auto
+      AEGIS_OCR_DTYPE: bfloat16
+      AEGIS_OCR_CPU_OFFLOAD: "1"
+      AEGIS_OCR_EMPTY_CACHE_AFTER_REQUEST: "1"
+      AEGIS_OCR_GPU_MEMORY_LIMIT_GB: "6.5"
+      AEGIS_UNLIMITED_OCR_OFFLOAD_FOLDER: /cache/offload
+      AEGIS_UNLIMITED_OCR_MAX_LENGTH: "256"
+      AEGIS_OCR_MAX_IMAGE_SIDE: "1024"
+      HF_HOME: /cache/huggingface
+      PYTORCH_ALLOC_CONF: expandable_segments:True
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    volumes:
+      - ./models:/models
+      - ./cache:/cache
+      - ./output:/output
+    gpus: all
+    healthcheck:
+      test: ["CMD", "python3.12", "-c", "import json, urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8190/health', timeout=5)); raise SystemExit(0 if payload.get('service_alive') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

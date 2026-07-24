@@ -1,6 +1,7 @@
 import yaml
+from aegis.config.services import get_service_base_url
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 def get_runtime_profile(name: str | None = None) -> Dict[str, Any]:
     """
@@ -31,5 +32,7 @@ def get_runtime_profile(name: str | None = None) -> Dict[str, Any]:
     # Add max_tokens to profile if it doesn't exist
     if 'max_tokens' not in profile:
         profile['max_tokens'] = 4096
+    if not profile.get('base_url'):
+        profile['base_url'] = get_service_base_url('ollama')
     
     return profile

@@ -6,6 +6,7 @@ from collections.abc import Iterable
 
 from .exceptions import OCRProviderNotFound
 from .provider import OCRProvider, StubOCRProvider
+from .providers import UnlimitedOCRProvider
 
 
 def provider_name(provider: OCRProvider) -> str:
@@ -23,9 +24,14 @@ class OCRRegistry:
         default_provider: str = "stub",
     ):
         self._providers: dict[str, OCRProvider] = {}
-        for provider in providers or [StubOCRProvider()]:
+        default_providers = providers or [StubOCRProvider(), UnlimitedOCRProvider()]
+        for provider in default_providers:
             self.register(provider)
-        self._default_provider = default_provider
+        if providers is None and default_provider == "stub":
+            unlimited = self._providers.get("unlimited")
+            self._default_provider = "unlimited" if unlimited and unlimited.available() else "stub"
+        else:
+            self._default_provider = default_provider
 
     def register(self, provider: OCRProvider) -> OCRProvider:
         self._providers[provider_name(provider)] = provider
@@ -46,6 +52,9 @@ class OCRRegistry:
 
     def available(self) -> list[OCRProvider]:
         return [provider for provider in self.providers() if provider.available()]
+
+    def has(self, name: str) -> bool:
+        return name in self._providers
 
     def set_default_provider(self, name: str) -> None:
         if name not in self._providers:

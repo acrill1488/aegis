@@ -69,9 +69,13 @@ from .orchestrator import app as orchestrator_app, print_queue_alias
 from .project import app as project_app
 from .recovery import app as recovery_app
 from .reflection import app as reflection_app
+from .config import app as config_app
+from aegis.greenboost.cli import app as greenboost_app
+from aegis.installer.cli import register_commands as register_installer_commands
 
 app = typer.Typer()
 console = Console()
+register_installer_commands(app)
 
 app.add_typer(workspace_app, name="workspace", help="Workspace management commands")
 app.add_typer(session_app, name="session", help="Session management commands")
@@ -117,6 +121,8 @@ app.add_typer(orchestrator_app, name="orchestrator", help="Execution Orchestrato
 app.add_typer(project_app, name="project", help="Project Runtime commands")
 app.add_typer(recovery_app, name="recovery", help="Recovery Engine commands")
 app.add_typer(reflection_app, name="reflection", help="Reflection Engine commands")
+app.add_typer(config_app, name="config", help="Central service configuration commands")
+app.add_typer(greenboost_app, name="greenboost", help="GreenBoost resource orchestration")
 
 @app.command("execute")
 def execute_command(
@@ -136,8 +142,8 @@ def check_command(command: str) -> bool:
     return shutil.which(command) is not None
 
 
-@app.command()
-def doctor():
+@app.command("legacy-doctor", hidden=True)
+def legacy_doctor():
     console.print(Panel("AEGIS System Doctor"))
 
     table = Table(title="System Check Results")
@@ -154,7 +160,12 @@ def doctor():
     table.add_row("npm", "✅" if npm_ok else "❌", "npm")
 
     try:
-        r = httpx.get("http://192.168.1.7:11434/api/tags", timeout=30.0, trust_env=False)
+        from aegis.config.services import get_service_base_url
+        r = httpx.get(
+            f"{get_service_base_url('ollama')}/api/tags",
+            timeout=30.0,
+            trust_env=False,
+        )
         if r.status_code == 200:
             data = r.json()
             models = data.get("models", [])

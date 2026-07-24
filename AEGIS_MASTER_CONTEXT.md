@@ -6,12 +6,15 @@
 - OCR Platform vertical active.
 - Current sprint: Foundation.
 - ComfyUI runs on Ubuntu in Docker.
-- Public endpoint: `http://192.168.1.7:8188`.
+- Service endpoints are resolved through the centralized AEGIS services configuration.
+- Default Windows configuration: `F:\AI_WORKSPACE\config\services.yaml`.
 - Internal backend observed: `18188` behind Caddy.
 - Image outputs are stored on the Windows workspace at `F:\AI_WORKSPACE\images\generated`.
 - Provider proxy issue fixed via LAN client handling with `trust_env=False`.
 - First real PNG generation succeeded.
-- OCR Platform Foundation builds the provider-neutral runtime architecture before connecting any production OCR provider.
+- OCR Platform Foundation is completed.
+- Current OCR sprint connects `UnlimitedOCRProvider` through a Windows HTTP client and an Ubuntu/Docker service.
+- OCR artifacts are stored on Windows at `F:\AI_WORKSPACE\ocr\results`.
 - One Active Vertical principle remains mandatory.
 
 ## Image Generation Boundary
@@ -20,4 +23,4 @@ The completed production boundary is txt2img through AEGIS -> Workflow Library -
 
 ## OCR Platform Boundary
 
-The active boundary is OCR Runtime foundation only: provider registry, Provider API, `OCRResult`, events, artifact registration, and CLI diagnostics. The sprint must not integrate OCR models, UnlimitedOCRProvider, PaddleOCRProvider, TesseractProvider, Vision, Qwen-VL, UI Graph, Memory, or Companion changes.
+The active boundary is Unlimited-OCR Provider only: Provider API compatibility, LAN HTTP client, Docker service wrapper, recognition commands, doctor diagnostics, artifacts, events, and acceptance. The sprint must not start PaddleOCR, Tesseract, Vision Language Models, Qwen-VL, UI Graph, Memory, Companion, or System Intelligence.

@@ -6,7 +6,7 @@ OCR Platform -> ACTIVE
 
 ## Active Sprint
 
-Foundation
+Document Pipeline
 
 ## Completed Verticals
 
@@ -30,8 +30,28 @@ Foundation
 - Workflow metadata and model catalog must stay separated, but linked.
 - A vertical closes only after a real user-visible result exists.
 
-## Next Active Vertical
+## Current OCR Boundary
 
-No later vertical is active.
+The One Active Vertical principle remains mandatory. The active implementation boundary is OCR Platform -> Document Pipeline only.
 
-The One Active Vertical principle remains mandatory. The active implementation boundary is OCR Platform Foundation only.
+Allowed scope:
+
+- Windows AEGIS remains the OCR client and orchestrator.
+- Ubuntu/Docker hosts the Unlimited-OCR service and model inference.
+- Stub OCR remains only a foundation and diagnostics fallback.
+- OCR output may be normalized into StructuredDocument.
+- StructuredDocument may be saved as document.json and text.txt artifacts.
+
+Not started:
+
+- PaddleOCR
+- Tesseract
+- Vision Language Models
+- Qwen-VL
+- BGE
+- Vector Search
+- Knowledge ingestion
+- UI Graph
+- Memory
+- Companion
+- System Intelligence

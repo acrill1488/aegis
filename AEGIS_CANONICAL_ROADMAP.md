@@ -7,6 +7,9 @@
 
 No later vertical is active.
 
+Service endpoints are resolved through the centralized AEGIS services configuration at
+`F:\AI_WORKSPACE\config\services.yaml` by default.
+
 ## Image Generation
 
 Status: COMPLETED / PRODUCTION READY
@@ -50,9 +53,9 @@ Catalog note: AnyLoRA and DreamShaper XL are catalog roadmap entries. The curren
 
 Status: ACTIVE
 
-Current sprint: Foundation
+Current sprint: Unlimited-OCR Provider
 
-Active scope:
+Completed foundation scope:
 
 - OCR Runtime package.
 - Provider API.
@@ -62,12 +65,19 @@ Active scope:
 - OCR lifecycle events.
 - Artifact registration through the existing project artifact API.
 - CLI diagnostics: providers, doctor, capabilities.
-- Future provider registration path for UnlimitedOCRProvider, PaddleOCRProvider, and TesseractProvider without Runtime changes.
+
+Active provider scope:
+
+- `UnlimitedOCRProvider` as an HTTP client for Ubuntu/Docker inference.
+- `baidu/Unlimited-OCR` service wrapper on port 8190.
+- Stable OCR service contract: `/health`, `/info`, `/ocr/image`, `/ocr/pdf`.
+- Windows config at `F:\AI_WORKSPACE\ocr\unlimited_ocr.json`.
+- Real `aegis ocr recognize-image PATH --provider unlimited` path.
+- OCR text and JSON artifacts under `F:\AI_WORKSPACE\ocr\results`.
+- No hidden stub fallback for recognition.
 
 Explicit non-scope:
 
-- OCR model integration.
-- UnlimitedOCRProvider implementation.
 - PaddleOCRProvider implementation.
 - TesseractProvider implementation.
 - Vision Language Models.

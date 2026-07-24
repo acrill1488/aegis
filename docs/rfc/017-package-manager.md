@@ -77,6 +77,22 @@ Failed installation rolls back staged changes. Failed diagnostics mark the packa
 
 Package Manager should support signed marketplaces, binary model distribution, reproducible installs, offline mirrors, and environment snapshots.
 
+# Implementation
+
+The implementation lives in `aegis.installer` and exposes the lifecycle API plus
+the root CLI commands `install`, `remove`, `update`, `bootstrap`, `registry`,
+`doctor`, `list`, `search`, and `rollback`.
+
+Package manifests are YAML files in `aegis/installer/manifests` (or the directory
+selected by `AEGIS_PACKAGE_REGISTRY`). Installed state and rollback journals live
+under `${AEGIS_WORKSPACE}/.aegis/installer`; their location can be overridden with
+`AEGIS_INSTALLER_STATE`. The workspace itself is derived from the central services
+configuration when `AEGIS_WORKSPACE` is not set.
+
+The component catalog and installed-state journal do not replace Provider, Model,
+Workflow, Capability, or Service registries. Manifests declare those registrations
+and the installer delegates activation to the existing runtimes and configuration.
+
 # Coding Rules
 
 - Packages must declare capabilities and permissions.

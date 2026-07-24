@@ -6,12 +6,10 @@ from typing import Any
 import httpx
 
 from aegis.config.runtime_config import get_runtime_profile
+from aegis.config.services import get_service_base_url
 from aegis.models.providers.base import BaseInferenceProvider
 from aegis.models.requests import ModelRequest
 from aegis.models.results import InferenceResult
-
-
-DEFAULT_OLLAMA_BASE_URL = "http://192.168.1.7:11434"
 
 
 class OllamaProvider(BaseInferenceProvider):
@@ -95,9 +93,9 @@ class OllamaProvider(BaseInferenceProvider):
     def _base_url_from_config(self) -> str:
         try:
             profile = get_runtime_profile()
-        except Exception:
-            return DEFAULT_OLLAMA_BASE_URL
-        return str(profile.get("base_url") or DEFAULT_OLLAMA_BASE_URL)
+        except (FileNotFoundError, ValueError):
+            profile = {}
+        return get_service_base_url("ollama", explicit=profile.get("base_url"))
 
     def _prompt_from_request(self, request: ModelRequest) -> str:
         prompt = request.input.get("prompt")

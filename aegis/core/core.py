@@ -40,6 +40,7 @@ from aegis.vision import VisionRuntime
 from aegis.vision.document import DocumentRuntime
 from aegis.image_generation import ImageGenerationRuntime
 from aegis.ocr import OCRRuntime
+from aegis.compute import GPUServiceHandoff
 
 class AegisCore:
     def __init__(self):
@@ -73,6 +74,8 @@ class AegisCore:
         self.registry.register("service_runtime", self.service_runtime)
         self.capability_runtime = CapabilityRuntime(self)
         self.registry.register("capability_runtime", self.capability_runtime)
+        self.gpu_service_handoff = GPUServiceHandoff()
+        self.registry.register("gpu_service_handoff", self.gpu_service_handoff)
         self.executor_runtime = ExecutorRuntime(
             capability_runtime=self.capability_runtime,
             core=self,

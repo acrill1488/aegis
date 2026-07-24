@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from aegis.capabilities import CapabilityDescriptor
+from aegis.compute import GPUServiceHandoff
 from aegis.serialization import to_plain
 from aegis.workflow_library import WorkflowLibraryRuntime
 
@@ -80,7 +81,10 @@ class ImageGenerationRuntime:
             "image.generation.started",
             {"provider": provider_name, "request": request},
         )
+        handoff_report = None
         try:
+            if provider_name == "comfyui":
+                handoff_report = self._prepare_gpu_service("image.generate")
             if not image_provider.available():
                 self._publish(
                     "image.provider.unavailable",
@@ -95,6 +99,8 @@ class ImageGenerationRuntime:
                 **result.metadata,
                 "project_artifacts": self._register_project_artifacts(result, request),
             }
+            if handoff_report is not None:
+                result.metadata["gpu_service_handoff"] = to_plain(handoff_report)
         except Exception as exc:
             result = ImageGenerationResult(
                 success=False,
@@ -107,6 +113,19 @@ class ImageGenerationRuntime:
         event_type = "image.generation.completed" if result.success else "image.generation.failed"
         self._publish(event_type, {"request": request, "result": result})
         return result
+
+    def _prepare_gpu_service(self, task_type: str):
+        handoff = None
+        registry = getattr(self.core, "registry", None)
+        get_service = getattr(registry, "get", None)
+        if callable(get_service):
+            handoff = get_service("gpu_service_handoff")
+        if handoff is None:
+            handoff = GPUServiceHandoff()
+        prepare = getattr(handoff, "prepare_for_task", None)
+        if not callable(prepare):
+            return None
+        return prepare(task_type)
 
     def models(self, payload: dict | None = None) -> list[dict[str, Any]]:
         from .model_catalog import ImageModelCatalog

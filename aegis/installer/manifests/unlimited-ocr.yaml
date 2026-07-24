@@ -1,0 +1,26 @@
+schema_version: 1
+id: unlimited-ocr
+name: Unlimited OCR
+type: provider
+version: "1.0.0"
+description: Unlimited-OCR HTTP provider and Docker service.
+dependencies: [docker, python, gpu, network, storage]
+services: [unlimited_ocr]
+providers: [unlimited]
+models: [baidu/Unlimited-OCR]
+healthcheck:
+  type: http
+  service: unlimited_ocr
+  endpoint: /health
+config:
+  service_url: configuration:unlimited_ocr
+install:
+  - type: docker_compose
+    operation: up
+    path: ${project_root}/compose/unlimited-ocr/docker-compose.yml
+remove:
+  - type: docker_compose
+    operation: down
+    path: ${project_root}/compose/unlimited-ocr/docker-compose.yml
+source: builtin
+permissions: [docker, network, gpu, storage]
