@@ -1,0 +1,35 @@
+schema_version: 1
+id: bge-m3
+name: BGE-M3 Embedding Provider
+type: provider
+version: "1.0.0"
+python_requires: ">=3.12,<3.14"
+python_recommended: "3.12"
+description: Optional dense embedding provider backed by the official FlagEmbedding package.
+dependencies: [python]
+providers: [bge-m3]
+models: [BAAI/bge-m3]
+healthcheck:
+  type: provider
+  service: bge-m3
+config:
+  section: embeddings.providers.bge-m3
+  defaults:
+    enabled: true
+    model_name: BAAI/bge-m3
+    device: auto
+    batch_size: 4
+    normalize_embeddings: true
+    max_length: 8192
+    use_fp16: true
+    timeout_seconds: 300
+    cache_dir: null
+    trust_remote_code: false
+install:
+  - type: command
+    command: ["${python}", -m, pip, install, FlagEmbedding]
+remove:
+  - type: command
+    command: ["${python}", -m, pip, uninstall, -y, FlagEmbedding]
+source: builtin
+permissions: [storage]

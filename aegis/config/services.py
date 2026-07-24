@@ -66,6 +66,7 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
             "services": {name: {"port": port, "base_url": None} for name, port in DEFAULT_PORTS.items()},
             "paths": {},
             "ocr": {"providers": {"paddleocr": {}}},
+            "embeddings": {"default_provider": "bge-m3", "max_texts_per_request": 256, "providers": {"bge-m3": {}}},
         }
         return ServicesConfig(path, data, "fallback")
     try:
@@ -104,6 +105,9 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
     ocr = data.get("ocr", {})
     if not isinstance(ocr, dict) or not isinstance(ocr.get("providers", {}), dict):
         raise _error(path, "ocr and ocr.providers must be mappings when present.")
+    embeddings = data.get("embeddings", {})
+    if not isinstance(embeddings, dict) or not isinstance(embeddings.get("providers", {}), dict):
+        raise _error(path, "embeddings and embeddings.providers must be mappings when present.")
     return ServicesConfig(path, data, "yaml")
 
 

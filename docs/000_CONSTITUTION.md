@@ -2,7 +2,7 @@
 
 ## Active Vertical
 
-OCR Platform -> PaddleOCR Provider v1 -> ACTIVE
+Embedding Platform -> BGE-M3 Provider v1 -> ACTIVE
 
 ## Active Sprint
 
@@ -30,27 +30,28 @@ Document Pipeline
 - Workflow metadata and model catalog must stay separated, but linked.
 - A vertical closes only after a real user-visible result exists.
 
-## Current OCR Boundary
+## Current Embedding Boundary
 
-The One Active Vertical principle remains mandatory. The active implementation boundary is OCR Platform -> Document Pipeline only.
+The One Active Vertical principle remains mandatory. PaddleOCR Provider v1 is complete. The active implementation boundary is Embedding Platform -> BGE-M3 dense embeddings only.
 
 Allowed scope:
 
 - Windows AEGIS remains the OCR client and orchestrator.
 - Ubuntu/Docker hosts the Unlimited-OCR service and model inference.
 - Stub OCR remains only a foundation and diagnostics fallback.
-- OCR output may be normalized into StructuredDocument.
-- StructuredDocument may be saved as document.json and text.txt artifacts.
+- The official FlagEmbedding API remains the model, tokenizer, batching, and normalization backend.
+- AEGIS owns only configuration, lifecycle, registry, diagnostics, normalized public models, installer, and CLI integration.
 
 Not started:
 
 - Tesseract
 - Vision Language Models
 - Qwen-VL
-- BGE
 - Vector Search
 - Knowledge ingestion
 - UI Graph
 - Memory
 - Companion
 - System Intelligence
+
+Embedding foundation does not complete the Memory vertical and does not add retrieval, indexing, RAG, sparse vectors, or ColBERT vectors.

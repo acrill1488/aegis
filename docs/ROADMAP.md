@@ -2,7 +2,8 @@
 
 ## Active vertical
 
-- OCR Platform: PaddleOCR Provider v1
+- OCR Platform: PaddleOCR Provider v1 completed
+- Embedding Platform: BGE-M3 Provider v1 active
 - Installer / Package Manager: completed
 - Следующие вертикали сохраняют существующий порядок.
 

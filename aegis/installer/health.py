@@ -48,6 +48,11 @@ class HealthChecker:
 
                     provider_health = PaddleOCRProvider().health()
                     checks.append(CheckResult(name="health:paddleocr", ok=bool(provider_health["available"]), details=f"{provider_health['status']}: {provider_health.get('message', '')}".strip()))
+                elif manifest.id == "bge-m3":
+                    from aegis.providers.bge_m3 import BGEM3Provider
+
+                    provider_health = BGEM3Provider().health().as_dict()
+                    checks.append(CheckResult(name="health:bge-m3", ok=bool(provider_health["available"]), details=f"{provider_health['status']}: {provider_health.get('message', '')}".strip()))
                 else:
                     checks.append(CheckResult(name=f"health:{manifest.id}", ok=True, details="Provider health is checked by its runtime"))
             except Exception as exc:
