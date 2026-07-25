@@ -56,7 +56,7 @@ orchestrator. It must be extended, never duplicated by a second orchestrator.
 - Lazy loading
 - Persistent Hugging Face cache
 
-## 5. OCR Platform — Current Active Vertical
+## 5. OCR Platform — Completed
 
 - PaddleOCR
 - Unlimited OCR
@@ -66,9 +66,12 @@ orchestrator. It must be extended, never duplicated by a second orchestrator.
 - OOM recovery
 - Production acceptance
 
-**AEGIS must remain on this stage until OCR production acceptance is completed.**
+Production acceptance is complete for both the PaddleOCR and Unlimited OCR
+provider paths, including normalized results, remote execution, diagnostics,
+artifact output, error handling, OOM recovery, automated tests, and real-image
+acceptance on the target infrastructure.
 
-## 6. Image Generation Platform
+## 6. Image Generation Platform — Completed
 
 - ComfyUI
 - Workflows
@@ -80,7 +83,16 @@ orchestrator. It must be extended, never duplicated by a second orchestrator.
 - Lifecycle
 - Idle shutdown
 
-## 7. GreenBoost Runtime
+The accepted production boundary is txt2img through the provider-neutral Image
+Generation Runtime and the remote ComfyUI provider. The repository includes
+remote workflow submission, progress polling, PNG retrieval, persisted and
+project-linked artifacts, provider and endpoint diagnostics, explicit failure
+reporting without a silent stub fallback, automated tests, and external
+real-PNG acceptance. Image-to-image, inpainting, ControlNet, IP-Adapter, upscale,
+and additional checkpoint workflows remain later expansions and do not reopen
+the accepted txt2img vertical.
+
+## 7. GreenBoost Runtime — Current Active Vertical
 
 - Internal GreenBoost policy
 - Resource Coordinator
@@ -106,6 +118,11 @@ ExecutionOrchestratorRuntime
 
 The Resource Coordinator belongs beneath `ExecutionOrchestratorRuntime`; do not
 create a second orchestrator.
+
+Existing resource-aware OCR support and the external GreenBoost adapter are
+inputs to this stage, not evidence that the full GreenBoost Runtime is complete.
+Stage 7 must proceed through its own RFC, implementation, tests, manual
+acceptance, and explicit owner approval.
 
 ## 8. Document Intelligence / Basic Desktop Foundation
 

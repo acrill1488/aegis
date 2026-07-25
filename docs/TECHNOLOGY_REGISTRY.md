@@ -62,13 +62,31 @@ the GPU is occupied by OCR, Vision, or ComfyUI. Select its model in the Voice RF
 
 ### OCR
 
-**ACTIVE:** PaddleOCR provider and Unlimited OCR provider. Qwen3-VL does not
-replace the specialized OCR Provider.
+**ACTIVE — completed platform:** PaddleOCR provider and Unlimited OCR provider.
+Both are integrated through the provider-neutral OCR Runtime and have production
+acceptance evidence. Qwen3-VL does not replace the specialized OCR Provider.
 
 ### Image Generation
 
-**ACTIVE FOUNDATION:** ComfyUI. Stable Diffusion and Flux checkpoints are not
-globally locked; pin each checkpoint at workflow level after benchmarking.
+**ACTIVE — completed txt2img platform:** ComfyUI, integrated through the
+provider-neutral Image Generation Runtime with remote execution, PNG and
+artifact retrieval, diagnostics, explicit error handling, automated coverage,
+and real-PNG acceptance. Stable Diffusion and Flux checkpoints are not globally
+locked; pin each checkpoint at workflow level after benchmarking. Image-to-image,
+inpainting, ControlNet, IP-Adapter, and upscale remain later expansions rather
+than accepted capabilities of the completed txt2img boundary.
+
+### GreenBoost Runtime
+
+**ACTIVE — current vertical, incomplete:** The repository already contains an
+internal GreenBoost adapter and resource-aware OCR execution, but the complete
+Stage 7 Resource Coordinator, scheduling, lifecycle, accounting, compatibility,
+and acceptance contract is not yet complete. Existing pieces must be extended
+under the canonical `ExecutionOrchestratorRuntime`, not treated as a second
+orchestrator or as completion of Stage 7.
+
+The external `IsolatedOctopi/greenboost` project remains **EXPERIMENTAL** and is
+governed separately from the internal GreenBoost policy.
 
 ## Repository Registry
 
