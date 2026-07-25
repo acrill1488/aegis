@@ -39,6 +39,22 @@ class EmbeddingRegistry:
     def resolve(self, provider_id: str | None = None) -> Any:
         return self.get(provider_id or self._default)
 
+    def remote(self, node_id: str | None = None) -> Any:
+        from aegis.providers.remote_bge_m3 import RemoteBGEM3Provider
+        from aegis.remote.config import load_remote_runtime_config
+
+        config = load_remote_runtime_config()
+        node = config.node(node_id)
+        provider_id = f"remote-bge-m3@{node.id}"
+        if provider_id not in self._providers:
+            provider = RemoteBGEM3Provider(
+                node, connect_timeout=config.connect_timeout_seconds,
+                read_timeout=config.read_timeout_seconds,
+            )
+            provider.id = provider_id
+            self.register(provider)
+        return self.get(provider_id)
+
     @property
     def default_provider(self) -> str:
         return self._default

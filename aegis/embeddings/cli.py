@@ -81,10 +81,12 @@ def doctor(provider: str | None = typer.Argument(None), json_output: bool = type
 def _embed(
     text: str, provider: str | None, device: str | None, batch_size: int | None,
     normalize: bool | None, json_output: bool, show_vector: bool,
+    execution: str | None, node: str | None,
 ) -> None:
     try:
         result = _runtime().embed(EmbeddingRequest(
             texts=text, provider=provider, device=device, batch_size=batch_size, normalize=normalize,
+            execution=execution, node=node,
         ))
     except Exception as exc:
         _fail(exc, json_output)
@@ -115,9 +117,11 @@ def embed(
     normalize: bool | None = typer.Option(None, "--normalize/--no-normalize"),
     json_output: bool = typer.Option(False, "--json"),
     show_vector: bool = typer.Option(False, "--show-vector"),
+    execution: str | None = typer.Option(None, "--execution", help="Execution mode: local, remote, or auto"),
+    node: str | None = typer.Option(None, "--node", help="Configured remote node id"),
 ):
     """Generate a dense embedding using the selected provider."""
-    _embed(text, provider, device, batch_size, normalize, json_output, show_vector)
+    _embed(text, provider, device, batch_size, normalize, json_output, show_vector, execution, node)
 
 
 @app.command("embed-file")
@@ -129,6 +133,8 @@ def embed_file(
     normalize: bool | None = typer.Option(None, "--normalize/--no-normalize"),
     json_output: bool = typer.Option(False, "--json"),
     show_vector: bool = typer.Option(False, "--show-vector"),
+    execution: str | None = typer.Option(None, "--execution", help="Execution mode: local, remote, or auto"),
+    node: str | None = typer.Option(None, "--node", help="Configured remote node id"),
 ):
     """Embed a UTF-8 .txt or .md file."""
     if path.suffix.lower() not in {".txt", ".md"}:
@@ -137,4 +143,4 @@ def embed_file(
         text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         _fail(EmbeddingValidationError(f"Could not read {path}: {exc}"), json_output)
-    _embed(text, provider, device, batch_size, normalize, json_output, show_vector)
+    _embed(text, provider, device, batch_size, normalize, json_output, show_vector, execution, node)

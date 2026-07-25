@@ -27,8 +27,39 @@ class EmbeddingRuntime:
             batch_size=request.batch_size,
             device=request.device,
             metadata=dict(request.metadata),
+            execution=request.execution,
+            node=request.node,
         )
-        return self.registry.resolve(request.provider).embed(normalized)
+        from aegis.remote.config import load_embedding_execution
+
+        configured_execution, configured_node = load_embedding_execution()
+        execution = request.execution or configured_execution
+        node = request.node or configured_node
+        if execution == "local":
+            return self.registry.resolve(request.provider).embed(normalized)
+        if execution == "remote":
+            return self.registry.remote(node).embed(normalized)
+        if execution != "auto":
+            raise EmbeddingValidationError("execution must be one of: local, remote, auto")
+        try:
+            remote = self.registry.remote(node)
+            remote_health = remote.health()
+            if remote_health.available and remote_health.status == "healthy":
+                return remote.embed(normalized)
+            reason = remote_health.message or remote_health.status
+        except Exception as exc:
+            reason = str(exc)
+        local = self.registry.resolve(request.provider)
+        local_health = local.health()
+        if not local_health.available:
+            raise EmbeddingValidationError(
+                f"remote node is unavailable ({reason}) and local provider is not ready"
+            )
+        result = local.embed(normalized)
+        from dataclasses import replace
+
+        return replace(result, warnings=[*result.warnings, f"Remote fallback to local: {reason}"],
+                       metadata={**result.metadata, "execution": "local", "fallback_reason": reason})
 
     def providers(self) -> list[dict]:
         return [
@@ -54,4 +85,3 @@ class EmbeddingRuntime:
         if any(not text.strip() for text in texts):
             raise EmbeddingValidationError("texts must not contain empty or whitespace-only strings")
         return list(texts)
-

@@ -1,0 +1,19 @@
+schema_version: 1
+id: remote-runtime
+name: AEGIS Remote Runtime
+type: runtime
+version: "1.0.0"
+python_requires: ">=3.12"
+description: Versioned authenticated remote AI runtime with BGE-M3 embedding routing.
+dependencies: [python]
+services: [aegis-remote-runtime]
+providers: [remote-bge-m3]
+healthcheck:
+  type: none
+config:
+  section: remote_runtime
+  deployment: deploy/remote-runtime/docker-compose.yml
+install: []
+remove: []
+source: builtin
+permissions: [network, storage, gpu]

@@ -1,0 +1,44 @@
+x-runtime-common: &runtime-common
+  build:
+    context: ../..
+    dockerfile: deploy/remote-runtime/Dockerfile
+  restart: unless-stopped
+  environment:
+    AEGIS_REMOTE_TOKEN: ${AEGIS_REMOTE_TOKEN:?Set AEGIS_REMOTE_TOKEN}
+    AEGIS_REMOTE_NODE_ID: ${AEGIS_REMOTE_NODE_ID:-ubuntu-primary}
+    AEGIS_SERVICES_CONFIG: /etc/aegis/services.yaml
+    HF_HOME: /var/cache/huggingface
+  ports:
+    - "${AEGIS_REMOTE_BIND_ADDRESS:-127.0.0.1}:8090:8090"
+  volumes:
+    - huggingface-cache:/var/cache/huggingface
+    - ${AEGIS_CONFIG_PATH:-./config}:/etc/aegis:ro
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/v1/health', timeout=5)"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 20s
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  aegis-remote-runtime:
+    <<: *runtime-common
+    gpus: all
+
+  aegis-remote-runtime-cpu:
+    <<: *runtime-common
+    profiles: ["cpu"]
+    environment:
+      AEGIS_REMOTE_TOKEN: ${AEGIS_REMOTE_TOKEN:?Set AEGIS_REMOTE_TOKEN}
+      AEGIS_REMOTE_NODE_ID: ${AEGIS_REMOTE_NODE_ID:-ubuntu-primary}
+      AEGIS_SERVICES_CONFIG: /etc/aegis/services.yaml
+      HF_HOME: /var/cache/huggingface
+      CUDA_VISIBLE_DEVICES: ""
+
+volumes:
+  huggingface-cache:
+

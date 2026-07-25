@@ -14,6 +14,8 @@ class EmbeddingRequest:
     batch_size: int | None = None
     device: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    execution: str | None = None
+    node: str | None = None
 
 
 @dataclass(frozen=True)
@@ -38,4 +40,3 @@ class EmbeddingResult:
     metadata: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[dict[str, str]] = field(default_factory=list)
-

@@ -67,6 +67,9 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
             "paths": {},
             "ocr": {"providers": {"paddleocr": {}}},
             "embeddings": {"default_provider": "bge-m3", "max_texts_per_request": 256, "providers": {"bge-m3": {}}},
+            "remote_runtime": {"enabled": True, "client": {"default_node": "ubuntu-primary",
+                "connect_timeout_seconds": 5, "read_timeout_seconds": 300}, "nodes": {},
+                "server": {"enabled": False, "node_id": "ubuntu-primary", "host": "127.0.0.1", "port": 8090}},
         }
         return ServicesConfig(path, data, "fallback")
     try:
@@ -108,6 +111,12 @@ def load_services_config(config_path: str | Path | None = None) -> ServicesConfi
     embeddings = data.get("embeddings", {})
     if not isinstance(embeddings, dict) or not isinstance(embeddings.get("providers", {}), dict):
         raise _error(path, "embeddings and embeddings.providers must be mappings when present.")
+    execution = embeddings.get("execution", "local")
+    if execution not in {"local", "remote", "auto"}:
+        raise _error(path, "embeddings.execution must be local, remote, or auto.")
+    remote_runtime = data.get("remote_runtime", {})
+    if not isinstance(remote_runtime, dict):
+        raise _error(path, "remote_runtime must be a mapping when present.")
     return ServicesConfig(path, data, "yaml")
 
 

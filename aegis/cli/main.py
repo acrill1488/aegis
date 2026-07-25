@@ -62,6 +62,7 @@ from .document import app as document_app
 from .image import app as image_app
 from aegis.ocr.cli import app as ocr_app
 from aegis.embeddings.cli import app as embeddings_app
+from aegis.remote.cli import app as remote_app
 from .workflow import app as workflow_app
 from .scenario import app as scenario_app
 from .skill_engine import app as skill_engine_app
@@ -115,6 +116,7 @@ app.add_typer(document_app, name="document", help="Document Intelligence command
 app.add_typer(image_app, name="image", help="Image Generation Runtime commands")
 app.add_typer(ocr_app, name="ocr", help="OCR Runtime commands")
 app.add_typer(embeddings_app, name="embeddings", help="Embedding Runtime commands")
+app.add_typer(remote_app, name="remote", help="Remote AI Runtime commands")
 app.add_typer(workflow_app, name="workflow", help="Workflow Library commands")
 app.add_typer(scenario_app, name="scenario", help="Scenario Runtime commands")
 app.add_typer(skill_engine_app, name="skill", help="YAML Skill Graph Engine commands")
