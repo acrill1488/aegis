@@ -13,6 +13,11 @@ def test_remote_runtime_deployment_is_safe_and_lazy():
     compose = yaml.safe_load(compose_text)
     service = compose["services"]["aegis-remote-runtime"]
     assert "pytorch/pytorch:" in dockerfile
+    assert "python -m venv --system-site-packages" in dockerfile
+    assert "VIRTUAL_ENV=/opt/aegis-venv" in dockerfile
+    assert "--break-system-packages" not in dockerfile
+    assert '"FlagEmbedding==1.3.5"' in dockerfile
+    assert '"transformers==4.48.3"' in dockerfile
     assert "huggingface.co" not in dockerfile and "BAAI/bge-m3" not in dockerfile
     assert "healthcheck" in service
     assert service["gpus"] == "all"

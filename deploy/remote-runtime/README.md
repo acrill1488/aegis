@@ -4,6 +4,10 @@ This isolated stack runs the repository's `aegis.remote.server` and routes embed
 
 The image is based on the official `pytorch/pytorch:2.12.1-cuda12.6-cudnn9-runtime` tag. The host needs Docker Engine, Docker Compose, a compatible NVIDIA driver, and NVIDIA Container Toolkit. CUDA and PyTorch come from the official image; do not install a driver in the container.
 
+Application packages are installed into `/opt/aegis-venv`, an isolated virtual environment created with access to the base image's CUDA-enabled PyTorch. The build does not modify the base image's PEP 668-managed Python environment and does not use `--break-system-packages`.
+
+FlagEmbedding is pinned to 1.3.5 with Transformers 4.48.3. FlagEmbedding 1.3.5 predates its Transformers v5 compatibility work, so the v4 pin prevents import-time API removal while leaving the official PyTorch/CUDA build unchanged.
+
 ## Configure and start with GPU
 
 Copy `.env.example` to `.env`, generate a strong token, and create `config/services.yaml`. The server binds to `0.0.0.0` inside the container; by default Compose publishes port 8090 only on host loopback. Set `AEGIS_REMOTE_BIND_ADDRESS` to the compute node's LAN address when LAN access is intended and protect that port with the host firewall.
@@ -41,4 +45,3 @@ networks:
 ```
 
 Run Compose with both files. No Docker socket, host network, privileged mode, driver, or model bind is required.
-
