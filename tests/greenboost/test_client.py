@@ -53,7 +53,9 @@ def test_discover_and_snapshot_are_typed():
     def handler(request):
         return httpx.Response(
             200,
-            json={"nodes": [NODE]} if request.url.path.endswith("nodes") else SNAPSHOT,
+            json={"nodes": [NODE]}
+            if request.url.path.endswith("discover")
+            else SNAPSHOT,
         )
 
     client = _client(handler)

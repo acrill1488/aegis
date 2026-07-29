@@ -1,15 +1,26 @@
-"""One-shot resource probes built on existing AEGIS status APIs."""
+"""One-shot, read-only resource observation built on existing AEGIS APIs."""
 
 from __future__ import annotations
 
 import socket
+import importlib
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
-from typing import Any
+from enum import StrEnum
+from typing import Any, Protocol
 
 from pydantic import Field
 
+from aegis.config.services import GreenBoostConfig, get_greenboost_config
 from aegis.embeddings.registry import EmbeddingRegistry
+from aegis.greenboost.client import GreenBoostClient
+from aegis.greenboost.errors import (
+    AuthenticationError,
+    GreenBoostError,
+    NodeUnavailable,
+    ProtocolError,
+    TimeoutError,
+)
 from aegis.image_generation.providers.comfyui import ComfyUIProvider
 from aegis.ocr.providers.unlimited import UnlimitedOCRProvider
 from aegis.providers.paddleocr import PaddleOCRProvider
@@ -32,51 +43,80 @@ from .contracts import (
 )
 
 
-class ProbeResult(ContractModel):
-    """Immutable ResourceSnapshot-compatible fragment returned by a probe."""
+class ProbeStatus(StrEnum):
+    success = "success"
+    partial = "partial"
+    unavailable = "unavailable"
+    failed = "failed"
+    disabled = "disabled"
+    unsupported = "unsupported"
 
+
+class ProbeResult(ContractModel):
+    """Internal ResourceSnapshot-compatible result for one observation source."""
+
+    probe_name: str = "unknown"
+    status: ProbeStatus = ProbeStatus.success
+    collected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     cpu: CPUState | None = None
     ram: MemoryState | None = None
     gpus: tuple[GPUState, ...] = ()
     disk: DiskState | None = None
     services: tuple[ServiceResourceState, ...] = ()
     models: tuple[ModelResourceState, ...] = ()
+    remote_snapshot: ResourceSnapshot | None = None
     warnings: tuple[ProbeWarning, ...] = Field(default=(), alias="probe_warnings")
+    error_code: str | None = None
 
     model_config = {**ContractModel.model_config, "populate_by_name": True}
 
 
-def _warning(code: str, exc: Exception, resource: str) -> ProbeWarning:
-    message = str(exc).strip() or type(exc).__name__
+class ResourceProbeProtocol(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    def collect(self) -> ProbeResult: ...
+
+
+def _warning(code: str, value: Exception | str, resource: str) -> ProbeWarning:
+    message = str(value).strip() or type(value).__name__
     return ProbeWarning(code=code, message=message[:2048], resource=resource)
 
 
+def _status(warnings: list[ProbeWarning], *, has_data: bool = True) -> ProbeStatus:
+    if warnings:
+        return ProbeStatus.partial if has_data else ProbeStatus.unavailable
+    return ProbeStatus.success
+
+
 class HostProbe:
-    """Observe local CPU, RAM, and disk through the existing SystemAPI."""
+    """Observe local CPU, RAM, and disks through the canonical SystemAPI."""
+
+    name = "local-system"
 
     def __init__(self, system: SystemAPI | None = None) -> None:
         self.system = system or SystemAPI()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         warnings: list[ProbeWarning] = []
-        cpu = None
-        ram = None
-        disk = None
+        cpu = ram = disk = None
         try:
-            value = self.system.cpu()
+            cpu_value = self.system.cpu()
             cpu = CPUState(
-                logical_cores=value.logical_cores,
-                available_cores=max(0.0, value.logical_cores * (100.0 - value.percent) / 100.0),
-                utilization_percent=value.percent,
+                logical_cores=cpu_value.logical_cores,
+                available_cores=max(
+                    0.0, cpu_value.logical_cores * (100.0 - cpu_value.percent) / 100.0
+                ),
+                utilization_percent=cpu_value.percent,
             )
         except Exception as exc:
             warnings.append(_warning("host.cpu.unavailable", exc, "cpu"))
         try:
-            value = self.system.memory()
+            memory_value = self.system.memory()
             ram = MemoryState(
-                total_mb=round(value.total_gb * 1024),
-                used_mb=round(value.used_gb * 1024),
-                available_mb=round(value.free_gb * 1024),
+                total_mb=round(memory_value.total_gb * 1024),
+                used_mb=round(memory_value.used_gb * 1024),
+                available_mb=round(memory_value.free_gb * 1024),
             )
         except Exception as exc:
             warnings.append(_warning("host.ram.unavailable", exc, "ram"))
@@ -89,16 +129,120 @@ class HostProbe:
             )
         except Exception as exc:
             warnings.append(_warning("host.disk.unavailable", exc, "disk"))
-        return ProbeResult(cpu=cpu, ram=ram, disk=disk, probe_warnings=tuple(warnings))
+        has_data = any(value is not None for value in (cpu, ram, disk))
+        return ProbeResult(
+            probe_name=self.name,
+            status=_status(warnings, has_data=has_data),
+            cpu=cpu,
+            ram=ram,
+            disk=disk,
+            probe_warnings=tuple(warnings),
+        )
+
+    probe = collect
+
+
+LocalSystemProbe = HostProbe
+
+
+class NvidiaGpuProbe:
+    """Observe NVIDIA devices through the optional official NVML bindings."""
+
+    name = "nvidia"
+
+    def __init__(self, nvml: Any | None = None) -> None:
+        self._nvml = nvml
+
+    def collect(self) -> ProbeResult:
+        try:
+            nvml: Any = self._nvml
+            if nvml is None:
+                nvml = importlib.import_module("pynvml")
+        except ImportError as exc:
+            warning = _warning("nvidia.nvml.unsupported", exc, "nvidia")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unsupported,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+        gpus: list[GPUState] = []
+        warnings: list[ProbeWarning] = []
+        initialized = False
+        try:
+            nvml.nvmlInit()
+            initialized = True
+            count = nvml.nvmlDeviceGetCount()
+            if count == 0:
+                return ProbeResult(
+                    probe_name=self.name,
+                    status=ProbeStatus.unavailable,
+                    error_code="nvidia.device.unavailable",
+                )
+            for index in range(count):
+                try:
+                    handle = nvml.nvmlDeviceGetHandleByIndex(index)
+                    memory = nvml.nvmlDeviceGetMemoryInfo(handle)
+                    utilization = nvml.nvmlDeviceGetUtilizationRates(handle)
+                    try:
+                        temperature = float(
+                            nvml.nvmlDeviceGetTemperature(
+                                handle, nvml.NVML_TEMPERATURE_GPU
+                            )
+                        )
+                    except Exception:
+                        temperature = None
+                    gpus.append(
+                        GPUState(
+                            id=str(nvml.nvmlDeviceGetUUID(handle)),
+                            name=str(nvml.nvmlDeviceGetName(handle)),
+                            utilization_percent=float(utilization.gpu),
+                            temperature_celsius=temperature,
+                            vram=MemoryState(
+                                total_mb=round(memory.total / 1024**2),
+                                used_mb=round(memory.used / 1024**2),
+                                available_mb=round(memory.free / 1024**2),
+                            ),
+                        )
+                    )
+                except Exception as exc:
+                    warnings.append(
+                        _warning("nvidia.device.partial", exc, f"nvidia:{index}")
+                    )
+        except Exception as exc:
+            warning = _warning("nvidia.nvml.unavailable", exc, "nvidia")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unavailable,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+        finally:
+            if initialized:
+                try:
+                    nvml.nvmlShutdown()
+                except Exception:
+                    pass
+        gpus.sort(key=lambda gpu: (gpu.id or "", gpu.name or ""))
+        return ProbeResult(
+            probe_name=self.name,
+            status=_status(warnings, has_data=bool(gpus)),
+            gpus=tuple(gpus),
+            probe_warnings=tuple(warnings),
+        )
+
+    probe = collect
 
 
 class GPUProbe:
-    """Observe GPUs through the existing SystemAPI nvidia-smi adapter."""
+    """Compatibility adapter over the existing nvidia-smi-backed SystemAPI."""
+
+    name = "gpu"
 
     def __init__(self, system: SystemAPI | None = None) -> None:
         self.system = system or SystemAPI()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         try:
             values = self.system.gpu()
             gpus = tuple(
@@ -108,60 +252,114 @@ class GPUProbe:
                     utilization_percent=value.load_percent,
                     temperature_celsius=value.temperature_c,
                     vram=MemoryState(
-                        total_mb=round(value.memory_total_mb) if value.memory_total_mb is not None else None,
-                        used_mb=round(value.memory_used_mb) if value.memory_used_mb is not None else None,
-                        available_mb=round(value.memory_free_mb) if value.memory_free_mb is not None else None,
+                        total_mb=round(value.memory_total_mb)
+                        if value.memory_total_mb is not None
+                        else None,
+                        used_mb=round(value.memory_used_mb)
+                        if value.memory_used_mb is not None
+                        else None,
+                        available_mb=round(value.memory_free_mb)
+                        if value.memory_free_mb is not None
+                        else None,
                     ),
                 )
                 for index, value in enumerate(values)
             )
-            return ProbeResult(gpus=gpus)
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.success if gpus else ProbeStatus.unavailable,
+                gpus=gpus,
+            )
         except Exception as exc:
-            return ProbeResult(probe_warnings=(_warning("gpu.unavailable", exc, "gpu"),))
+            warning = _warning("gpu.unavailable", exc, "gpu")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unavailable,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+
+    probe = collect
 
 
-class DockerProbe:
-    """Adapt the canonical SystemAPI Docker status."""
+class _SystemServiceProbe:
+    method = ""
+    name = ""
 
     def __init__(self, system: SystemAPI | None = None) -> None:
         self.system = system or SystemAPI()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         try:
-            value = self.system.docker()
-            return ProbeResult(services=(ServiceResourceState(
-                id="docker", state="available" if value.available else "unavailable",
-                reachable=value.available,
-            ),))
-        except Exception as exc:
+            value = getattr(self.system, self.method)()
+            state = "available" if value.available else "unavailable"
             return ProbeResult(
-                services=(ServiceResourceState(id="docker", state="unknown", reachable=False),),
-                probe_warnings=(_warning("docker.probe.failed", exc, "docker"),),
+                probe_name=self.name,
+                status=ProbeStatus.success
+                if value.available
+                else ProbeStatus.unavailable,
+                services=(
+                    ServiceResourceState(
+                        id=self.name, state=state, reachable=value.available
+                    ),
+                ),
+            )
+        except Exception as exc:
+            warning = _warning(f"{self.name}.probe.failed", exc, self.name)
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.failed,
+                services=(
+                    ServiceResourceState(
+                        id=self.name, state="unknown", reachable=False
+                    ),
+                ),
+                probe_warnings=(warning,),
+                error_code=warning.code,
             )
 
+    probe = collect
 
-class OllamaProbe:
-    """Adapt the canonical SystemAPI Ollama /api/tags status."""
+
+class DockerProbe(_SystemServiceProbe):
+    method = "docker"
+    name = "docker"
+
+
+class OllamaProbe(_SystemServiceProbe):
+    method = "ollama"
+    name = "ollama"
+
+
+class OllamaModelProbe:
+    """Adapt Ollama's existing tag health surface into canonical model states."""
+
+    name = "ollama-models"
 
     def __init__(self, system: SystemAPI | None = None) -> None:
         self.system = system or SystemAPI()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         try:
-            value = self.system.ollama()
-            return ProbeResult(services=(ServiceResourceState(
-                id="ollama", state="available" if value.available else "unavailable",
-                reachable=value.available,
-            ),))
-        except Exception as exc:
-            return ProbeResult(
-                services=(ServiceResourceState(id="ollama", state="unknown", reachable=False),),
-                probe_warnings=(_warning("ollama.probe.failed", exc, "ollama"),),
+            models = tuple(
+                ModelResourceState(id=model, provider="ollama", loaded=True, warm=None)
+                for model in self.system.ollama_models()
             )
+            return ProbeResult(probe_name=self.name, models=models)
+        except Exception as exc:
+            warning = _warning("ollama.models.unavailable", exc, "ollama")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unavailable,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+
+    probe = collect
 
 
 class OCRProbe:
-    """Adapt the existing health APIs of production OCR providers."""
+    name = "ocr"
 
     def __init__(self, providers: Iterable[Any] | Any | None = None) -> None:
         if providers is None:
@@ -170,68 +368,115 @@ class OCRProbe:
             providers = (providers,)
         self.providers = tuple(providers)
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         services: list[ServiceResourceState] = []
         models: list[ModelResourceState] = []
         warnings: list[ProbeWarning] = []
         for provider in self.providers:
             name_value = getattr(provider, "name", type(provider).__name__)
             provider_name = str(name_value() if callable(name_value) else name_value)
-            service_id = "unlimited-ocr" if provider_name == "unlimited" else provider_name
+            service_id = (
+                "unlimited-ocr" if provider_name == "unlimited" else provider_name
+            )
             try:
                 health = provider.health()
                 info_method = getattr(provider, "info", None)
                 info = info_method() if callable(info_method) else {}
-                reachable = bool(health.get(
-                    "service_alive", health.get("service_reachable", health.get("available", False))
-                ))
+                reachable = bool(
+                    health.get(
+                        "service_alive",
+                        health.get("service_reachable", health.get("available", False)),
+                    )
+                )
                 if provider_name != "unlimited" and "available" not in health:
-                    reachable = str(health.get("status", "")).lower() in {"ok", "ready", "healthy"}
+                    reachable = str(health.get("status", "")).lower() in {
+                        "ok",
+                        "ready",
+                        "healthy",
+                    }
+                services.append(
+                    ServiceResourceState(
+                        id=service_id,
+                        state=str(health.get("status") or "unknown"),
+                        reachable=reachable,
+                    )
+                )
                 model_id = info.get("model_id") or health.get("model_id")
-                loaded = health.get("model_loaded", info.get("model_loaded"))
-                warm = health.get("inference_ready", info.get("inference_ready"))
-                services.append(ServiceResourceState(
-                    id=service_id, state=str(health.get("status") or "unknown"), reachable=reachable,
-                ))
                 if model_id:
-                    models.append(ModelResourceState(
-                        id=str(model_id), provider=service_id, loaded=loaded, warm=warm,
-                    ))
+                    models.append(
+                        ModelResourceState(
+                            id=str(model_id),
+                            provider=service_id,
+                            loaded=health.get("model_loaded", info.get("model_loaded")),
+                            warm=health.get(
+                                "inference_ready", info.get("inference_ready")
+                            ),
+                        )
+                    )
             except Exception as exc:
-                services.append(ServiceResourceState(id=service_id, state="unknown", reachable=False))
+                services.append(
+                    ServiceResourceState(
+                        id=service_id, state="unknown", reachable=False
+                    )
+                )
                 warnings.append(_warning("ocr.probe.failed", exc, service_id))
+        services.sort(key=lambda item: item.id)
+        models.sort(key=lambda item: (item.provider or "", item.id))
         return ProbeResult(
-            services=tuple(services), models=tuple(models), probe_warnings=tuple(warnings),
+            probe_name=self.name,
+            status=_status(warnings, has_data=bool(services)),
+            services=tuple(services),
+            models=tuple(models),
+            probe_warnings=tuple(warnings),
         )
+
+    probe = collect
 
 
 class ComfyUIProbe:
-    """Adapt the existing ComfyUI availability check."""
+    name = "comfyui"
 
     def __init__(self, provider: ComfyUIProvider | None = None) -> None:
         self.provider = provider or ComfyUIProvider()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         try:
             available = self.provider.available()
-            return ProbeResult(services=(ServiceResourceState(
-                id="comfyui", state="available" if available else "unavailable",
-                reachable=available,
-            ),))
-        except Exception as exc:
             return ProbeResult(
-                services=(ServiceResourceState(id="comfyui", state="unknown", reachable=False),),
-                probe_warnings=(_warning("comfyui.probe.failed", exc, "comfyui"),),
+                probe_name=self.name,
+                status=ProbeStatus.success if available else ProbeStatus.unavailable,
+                services=(
+                    ServiceResourceState(
+                        id="comfyui",
+                        state="available" if available else "unavailable",
+                        reachable=available,
+                    ),
+                ),
             )
+        except Exception as exc:
+            warning = _warning("comfyui.probe.failed", exc, "comfyui")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.failed,
+                services=(
+                    ServiceResourceState(
+                        id="comfyui", state="unknown", reachable=False
+                    ),
+                ),
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+
+    probe = collect
 
 
 class EmbeddingProbe:
-    """Adapt registered embedding providers' health APIs."""
+    name = "models"
 
     def __init__(self, registry: EmbeddingRegistry | None = None) -> None:
         self.registry = registry or EmbeddingRegistry()
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         services: list[ServiceResourceState] = []
         models: list[ModelResourceState] = []
         warnings: list[ProbeWarning] = []
@@ -239,21 +484,48 @@ class EmbeddingProbe:
             provider_id = str(provider.id)
             try:
                 health = provider.health()
-                services.append(ServiceResourceState(
-                    id=provider_id, state=str(health.status), reachable=bool(health.available),
-                ))
-                models.append(ModelResourceState(
-                    id=str(getattr(health, "provider", provider_id)), provider=provider_id,
-                    loaded=health.model_loaded, warm=bool(health.available and health.model_loaded),
-                ))
+                services.append(
+                    ServiceResourceState(
+                        id=provider_id,
+                        state=str(health.status),
+                        reachable=bool(health.available),
+                    )
+                )
+                models.append(
+                    ModelResourceState(
+                        id=str(getattr(health, "provider", provider_id)),
+                        provider=provider_id,
+                        loaded=health.model_loaded,
+                        warm=bool(health.available and health.model_loaded),
+                    )
+                )
             except Exception as exc:
-                services.append(ServiceResourceState(id=provider_id, state="unknown", reachable=False))
+                services.append(
+                    ServiceResourceState(
+                        id=provider_id, state="unknown", reachable=False
+                    )
+                )
                 warnings.append(_warning("embedding.probe.failed", exc, provider_id))
-        return ProbeResult(services=tuple(services), models=tuple(models), probe_warnings=tuple(warnings))
+        services.sort(key=lambda item: item.id)
+        models.sort(key=lambda item: (item.provider or "", item.id))
+        return ProbeResult(
+            probe_name=self.name,
+            status=_status(warnings, has_data=bool(services)),
+            services=tuple(services),
+            models=tuple(models),
+            probe_warnings=tuple(warnings),
+        )
+
+    probe = collect
+
+
+ModelProbe = EmbeddingProbe
 
 
 class RemoteProbe:
-    """Adapt every configured remote runtime's versioned health API."""
+    """Compatibility observation of configured AEGIS remote runtimes."""
+
+    name = "remote-runtime"
 
     def __init__(
         self,
@@ -263,32 +535,111 @@ class RemoteProbe:
         self.config = config or load_remote_runtime_config()
         self.client_factory = client_factory
 
-    def probe(self) -> ProbeResult:
+    def collect(self) -> ProbeResult:
         services: list[ServiceResourceState] = []
         warnings: list[ProbeWarning] = []
         for node_id, node in sorted(self.config.nodes.items()):
             resource = f"remote-runtime:{node_id}"
             if not self.config.enabled or not node.enabled:
-                services.append(ServiceResourceState(id=resource, state="disabled", reachable=False))
+                services.append(
+                    ServiceResourceState(id=resource, state="disabled", reachable=False)
+                )
                 continue
             try:
-                client = self.client_factory(
-                    node, connect_timeout=self.config.connect_timeout_seconds,
+                health = self.client_factory(
+                    node,
+                    connect_timeout=self.config.connect_timeout_seconds,
                     read_timeout=self.config.read_timeout_seconds,
-                )
-                health = client.health()
+                ).health()
                 state = str(health.get("status") or "unknown")
-                services.append(ServiceResourceState(
-                    id=resource, state=state, reachable=state in {"ok", "ready", "healthy"},
-                ))
+                services.append(
+                    ServiceResourceState(
+                        id=resource,
+                        state=state,
+                        reachable=state in {"ok", "ready", "healthy"},
+                    )
+                )
             except Exception as exc:
-                services.append(ServiceResourceState(id=resource, state="unreachable", reachable=False))
+                services.append(
+                    ServiceResourceState(
+                        id=resource, state="unreachable", reachable=False
+                    )
+                )
                 warnings.append(_warning("remote.probe.failed", exc, resource))
-        return ProbeResult(services=tuple(services), probe_warnings=tuple(warnings))
+        return ProbeResult(
+            probe_name=self.name,
+            status=_status(warnings, has_data=bool(services)),
+            services=tuple(services),
+            probe_warnings=tuple(warnings),
+        )
+
+    probe = collect
+
+
+class GreenBoostRemoteProbe:
+    """Read a remote snapshot exclusively through the RFC-055 client."""
+
+    name = "greenboost-remote"
+
+    def __init__(
+        self,
+        config: GreenBoostConfig | None = None,
+        client_factory: Callable[..., GreenBoostClient] = GreenBoostClient,
+    ) -> None:
+        self.config = config or get_greenboost_config()
+        self.client_factory = client_factory
+
+    def collect(self) -> ProbeResult:
+        if not self.config.enabled:
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.disabled,
+                error_code="greenboost.disabled",
+            )
+        try:
+            with self.client_factory(self.config) as client:
+                snapshot = client.snapshot()
+            return ProbeResult(probe_name=self.name, remote_snapshot=snapshot)
+        except NodeUnavailable as exc:
+            warning = _warning("greenboost.snapshot.unsupported", exc, "greenboost")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unsupported,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+        except TimeoutError as exc:
+            warning = _warning("greenboost.snapshot.timeout", exc, "greenboost")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.unavailable,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+        except AuthenticationError as exc:
+            warning = _warning("greenboost.snapshot.authentication", exc, "greenboost")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.failed,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+        except (ProtocolError, GreenBoostError) as exc:
+            warning = _warning("greenboost.snapshot.failed", exc, "greenboost")
+            return ProbeResult(
+                probe_name=self.name,
+                status=ProbeStatus.failed,
+                probe_warnings=(warning,),
+                error_code=warning.code,
+            )
+
+    probe = collect
 
 
 class ResourceProbe:
-    """Merge one synchronous pass of all resource probes into one snapshot."""
+    """Deterministically merge one synchronous pass into one ResourceSnapshot."""
+
+    name = "composite"
 
     def __init__(
         self,
@@ -297,39 +648,130 @@ class ResourceProbe:
         node: NodeReference | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        self.probes = tuple(probes) if probes is not None else (
-            HostProbe(), GPUProbe(), DockerProbe(), OllamaProbe(), OCRProbe(),
-            ComfyUIProbe(), EmbeddingProbe(), RemoteProbe(),
+        self.probes = tuple(probes) if probes is not None else self._configured_probes()
+        self.node = node or NodeReference(
+            id=socket.gethostname(), scope=NodeScope.local
         )
-        self.node = node or NodeReference(id=socket.gethostname(), scope=NodeScope.local)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def probe(self) -> ResourceSnapshot:
-        cpu = CPUState()
-        ram = MemoryState()
-        disk = DiskState()
-        gpus: list[GPUState] = []
-        services: list[ServiceResourceState] = []
-        models: list[ModelResourceState] = []
-        warnings: list[ProbeWarning] = []
+    @staticmethod
+    def _configured_probes() -> tuple[Any, ...]:
+        config = get_greenboost_config()
+        settings = config.probes
+        if not settings.enabled:
+            return ()
+        probes: list[Any] = []
+        if settings.local_system.enabled:
+            probes.append(HostProbe())
+        if settings.nvidia.enabled:
+            probes.append(NvidiaGpuProbe())
+        # With GBIP enabled the Ubuntu service owns Docker/Ollama/model discovery.
+        # Disabled GBIP retains the legacy local workstation observation pass.
+        if not config.enabled:
+            if settings.services.enabled:
+                probes.extend(
+                    (DockerProbe(), OllamaProbe(), OCRProbe(), ComfyUIProbe())
+                )
+            if settings.models.enabled:
+                probes.extend((OllamaModelProbe(), EmbeddingProbe()))
+        if settings.remote.enabled:
+            probes.extend((RemoteProbe(), GreenBoostRemoteProbe(config)))
+        return tuple(probes)
+
+    def results(self) -> tuple[ProbeResult, ...]:
+        results: list[ProbeResult] = []
         for probe in self.probes:
             try:
-                result = probe.probe()
+                operation = getattr(probe, "collect", None) or probe.probe
+                results.append(operation())
             except Exception as exc:
-                warnings.append(_warning("resource.probe.failed", exc, type(probe).__name__))
-                continue
+                name = str(getattr(probe, "name", type(probe).__name__))
+                warning = _warning("resource.probe.failed", exc, name)
+                results.append(
+                    ProbeResult(
+                        probe_name=name,
+                        status=ProbeStatus.failed,
+                        probe_warnings=(warning,),
+                        error_code=warning.code,
+                    )
+                )
+        return tuple(results)
+
+    def collect(self) -> ResourceSnapshot:
+        return self.collect_results(self.results())
+
+    def collect_results(
+        self,
+        results: Iterable[ProbeResult],
+        *,
+        warn_separate_remote: bool = True,
+    ) -> ResourceSnapshot:
+        """Build the local snapshot from an already completed probe pass."""
+        cpu, ram, disk = CPUState(), MemoryState(), DiskState()
+        gpus: dict[str, GPUState] = {}
+        services: dict[str, ServiceResourceState] = {}
+        models: dict[tuple[str, str], ModelResourceState] = {}
+        warnings: list[ProbeWarning] = []
+        remote: ResourceSnapshot | None = None
+        for result in results:
             if result.cpu is not None:
                 cpu = result.cpu
             if result.ram is not None:
                 ram = result.ram
             if result.disk is not None:
                 disk = result.disk
-            gpus.extend(result.gpus)
-            services.extend(result.services)
-            models.extend(result.models)
+            for gpu in result.gpus:
+                gpus[gpu.id or gpu.name or str(len(gpus))] = gpu
+            for service in result.services:
+                services[service.id] = service
+            for model in result.models:
+                models[(model.provider or "", model.id)] = model
             warnings.extend(result.warnings)
+            if result.remote_snapshot is not None:
+                remote = result.remote_snapshot
+        if remote is not None:
+            if remote.node == self.node:
+                if remote.timestamp > self.clock():
+                    warnings.append(
+                        _warning(
+                            "resource.clock.skew",
+                            "Remote snapshot timestamp is in the future",
+                            remote.node.id,
+                        )
+                    )
+                for gpu in remote.gpus:
+                    gpus.setdefault(gpu.id or gpu.name or str(len(gpus)), gpu)
+                for service in remote.services:
+                    services.setdefault(service.id, service)
+                for model in remote.models:
+                    models.setdefault((model.provider or "", model.id), model)
+                warnings.extend(remote.probe_warnings)
+            elif warn_separate_remote:
+                warnings.append(
+                    _warning(
+                        "resource.remote.separate-node",
+                        "Remote snapshot belongs to a different node and cannot be embedded in the single-node ResourceSnapshot contract",
+                        remote.node.id,
+                    )
+                )
+        timestamp = self.clock()
         return ResourceSnapshot(
-            timestamp=self.clock(), node=self.node, cpu=cpu, ram=ram, gpus=tuple(gpus),
-            disk=disk, services=tuple(services), models=tuple(models),
+            timestamp=timestamp,
+            node=self.node,
+            cpu=cpu,
+            ram=ram,
+            gpus=tuple(
+                sorted(gpus.values(), key=lambda item: (item.id or "", item.name or ""))
+            ),
+            disk=disk,
+            services=tuple(sorted(services.values(), key=lambda item: item.id)),
+            models=tuple(
+                sorted(models.values(), key=lambda item: (item.provider or "", item.id))
+            ),
             probe_warnings=tuple(warnings),
         )
+
+    probe = collect
+
+
+CompositeResourceProbe = ResourceProbe

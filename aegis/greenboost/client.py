@@ -66,7 +66,7 @@ class GreenBoostClient:
         )
 
     def discover(self) -> tuple[NodeReference, ...]:
-        return _nodes(self.transport.request("GET", "/v1/nodes"))
+        return _nodes(self.transport.request("GET", "/v1/discover"))
 
     def snapshot(self, node_id: str | None = None) -> ResourceSnapshot:
         path = (
@@ -141,7 +141,7 @@ class AsyncGreenBoostClient:
         )
 
     async def discover(self) -> tuple[NodeReference, ...]:
-        return _nodes(await self.transport.request("GET", "/v1/nodes"))
+        return _nodes(await self.transport.request("GET", "/v1/discover"))
 
     async def snapshot(self, node_id: str | None = None) -> ResourceSnapshot:
         path = (

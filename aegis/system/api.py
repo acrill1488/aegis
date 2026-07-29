@@ -21,6 +21,8 @@ except ImportError:  # pragma: no cover - exercised only in incomplete environme
 
 
 BYTES_PER_GB = 1024**3
+
+
 class SystemAPI:
     """Public API for local system resource and service status."""
 
@@ -157,6 +159,19 @@ class SystemAPI:
         ]
         details = ", ".join(models) if models else "Available"
         return ServiceInfo(name="ollama", available=True, details=details)
+
+    def ollama_models(self) -> list[str]:
+        """Return model identifiers reported by the configured Ollama service."""
+        response = httpx.get(
+            f"{get_service_base_url('ollama')}/api/tags", timeout=5, trust_env=False
+        )
+        response.raise_for_status()
+        data = response.json()
+        return sorted(
+            str(model["name"])
+            for model in data.get("models", [])
+            if isinstance(model, dict) and model.get("name")
+        )
 
     def status(self) -> SystemStatus:
         return SystemStatus(

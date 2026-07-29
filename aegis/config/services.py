@@ -46,6 +46,46 @@ class GreenBoostConfig(BaseModel):
     write_timeout: float = Field(default=30.0, gt=0)
     pool_timeout: float = Field(default=5.0, gt=0)
     retries: int = Field(default=0, ge=0, le=10)
+    server: "GreenBoostServerConfig" = Field(
+        default_factory=lambda: GreenBoostServerConfig()
+    )
+    probes: "GreenBoostProbesConfig" = Field(
+        default_factory=lambda: GreenBoostProbesConfig()
+    )
+
+
+class ProbeToggle(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    enabled: bool = True
+
+
+class GreenBoostServerConfig(BaseModel):
+    """GBIP service settings; the bearer token is resolved only from the environment."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    enabled: bool = False
+    node_id: str = Field(default="ubuntu-primary", min_length=1, max_length=128)
+    host: str = Field(default="127.0.0.1", min_length=1)
+    port: int = Field(default=8091, ge=1, le=65535)
+    token_env: str = Field(default="AEGIS_GREENBOOST_API_KEY", min_length=1)
+
+
+class TimedProbeToggle(ProbeToggle):
+    timeout_seconds: float = Field(default=2.0, gt=0)
+
+
+class GreenBoostProbesConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    enabled: bool = True
+    local_system: ProbeToggle = Field(default_factory=ProbeToggle)
+    nvidia: ProbeToggle = Field(default_factory=ProbeToggle)
+    services: TimedProbeToggle = Field(default_factory=TimedProbeToggle)
+    models: TimedProbeToggle = Field(
+        default_factory=lambda: TimedProbeToggle(timeout_seconds=3.0)
+    )
+    remote: ProbeToggle = Field(default_factory=ProbeToggle)
+    fail_on_required_probe_error: bool = False
 
 
 def get_greenboost_config() -> GreenBoostConfig:
