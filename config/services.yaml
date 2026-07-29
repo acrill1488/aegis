@@ -1,0 +1,49 @@
+﻿schema_version: 1
+
+server:
+  scheme: http
+  host: 127.0.0.1
+
+services:
+  ollama:
+    port: 11434
+    base_url: null
+  unlimited_ocr:
+    port: 8190
+    base_url: null
+  comfyui:
+    port: 8188
+    base_url: null
+
+paths: {}
+
+ocr:
+  providers:
+    paddleocr: {}
+
+embeddings:
+  default_provider: bge-m3
+  execution: remote
+  max_texts_per_request: 256
+  providers:
+    bge-m3: {}
+
+remote_runtime:
+  enabled: true
+
+  client:
+    default_node: ubuntu-primary
+    connect_timeout_seconds: 5
+    read_timeout_seconds: 300
+
+  nodes:
+    ubuntu-primary:
+      enabled: true
+      base_url: http://192.168.1.12:8090
+      token_env: AEGIS_REMOTE_TOKEN
+
+  server:
+    enabled: false
+    node_id: windows-workstation
+    host: 127.0.0.1
+    port: 8090

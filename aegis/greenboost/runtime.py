@@ -18,6 +18,10 @@ import httpx
 import yaml
 from PIL import Image
 
+from aegis.config.services import get_greenboost_config
+
+from .client import GreenBoostClient
+
 DEFAULT_CONFIG = Path(r"F:\AI_WORKSPACE\compute\greenboost.yaml")
 REPO_CONFIG = Path(__file__).resolve().parents[2] / "config" / "greenboost.yaml"
 
@@ -83,6 +87,10 @@ class GreenBoostRuntime:
         return {"name": selected, **dict(profiles[selected])}
 
     def snapshot(self) -> dict[str, Any]:
+        gbip = get_greenboost_config()
+        if gbip.enabled:
+            with GreenBoostClient(gbip) as client:
+                return client.snapshot().model_dump(mode="json")
         ssh_snapshot = self._snapshot_via_ssh()
         if ssh_snapshot:
             return ssh_snapshot

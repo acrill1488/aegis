@@ -7,6 +7,7 @@ import pytest
 from aegis.config.services import (
     ServicesConfigError,
     get_configured_path,
+    get_greenboost_config,
     get_service_base_url,
     load_services_config,
     resolve_service_base_url,
@@ -46,7 +47,13 @@ def test_missing_yaml_uses_explicit_local_fallback(tmp_path, monkeypatch):
     assert resolved.source == "fallback"
 
 
-@pytest.mark.parametrize("body, message", [("server: [", "YAML could not be loaded"), (_valid().replace("8190", "70000"), "integer between 1 and 65535")])
+@pytest.mark.parametrize(
+    "body, message",
+    [
+        ("server: [", "YAML could not be loaded"),
+        (_valid().replace("8190", "70000"), "integer between 1 and 65535"),
+    ],
+)
 def test_invalid_yaml_is_not_silently_ignored(tmp_path, monkeypatch, body, message):
     path = _write(tmp_path / "bad.yaml", body)
     monkeypatch.setenv("AEGIS_SERVICES_CONFIG", str(path))
@@ -60,7 +67,10 @@ def test_base_url_and_environment_precedence(tmp_path, monkeypatch):
     assert get_service_base_url("unlimited_ocr") == "https://ocr.test/api"
     monkeypatch.setenv("AEGIS_UNLIMITED_OCR_BASE_URL", "http://10.0.0.5:9000/")
     assert get_service_base_url("unlimited_ocr") == "http://10.0.0.5:9000"
-    assert get_service_base_url("unlimited_ocr", "http://127.0.0.1:1") == "http://127.0.0.1:1"
+    assert (
+        get_service_base_url("unlimited_ocr", "http://127.0.0.1:1")
+        == "http://127.0.0.1:1"
+    )
 
 
 def test_unknown_service_is_rejected(tmp_path, monkeypatch):
@@ -76,3 +86,24 @@ def test_common_server_environment_overrides_yaml(tmp_path, monkeypatch):
     monkeypatch.setenv("AEGIS_SERVER_HOST", "10.0.0.5")
     monkeypatch.setenv("AEGIS_SERVER_SCHEME", "https")
     assert get_service_base_url("comfyui") == "https://10.0.0.5:8188"
+
+
+def test_greenboost_uses_central_configuration(tmp_path, monkeypatch):
+    body = (
+        _valid()
+        + """
+greenboost:
+  enabled: true
+  base_url: https://greenboost.test/api
+  connect_timeout: 2
+  read_timeout: 9
+  write_timeout: 4
+  retries: 2
+"""
+    )
+    path = _write(tmp_path / "services.yaml", body)
+    monkeypatch.setenv("AEGIS_SERVICES_CONFIG", str(path))
+    config = get_greenboost_config()
+    assert config.enabled is True
+    assert str(config.base_url) == "https://greenboost.test/api"
+    assert config.retries == 2
